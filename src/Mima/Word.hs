@@ -1,4 +1,8 @@
-module Mima.Word where
+module Mima.Word
+  ( Word32Based(..)
+  , MimaWord
+  , MimaAddress
+  ) where
 
 import           Data.Bits
 import           Data.Word
