@@ -24,7 +24,7 @@ settingsParser :: Parser Settings
 settingsParser = Settings
   <$> strArgument
       (metavar "INFILE"
-       <> help "The memory dump to load and execute")
+       <> help "The binary memory dump to load and execute")
   <*> (optional . option auto)
       (long "steps"
        <> short 'n'
@@ -34,19 +34,19 @@ settingsParser = Settings
       (long "dump"
        <> short 'd'
        <> metavar "OUTFILE"
-       <> help "If specified, the MiMa's memory is dumped to this file after execution is finished")
+       <> help "If specified, write the MiMa's binary memory dump to this file after execution is finished")
   <*> flag False True
       (long "quiet"
        <> short 'q'
-       <> help "Whether to print the memory after execution is finished")
+       <> help "Don't print the memory dump")
   <*> flag False True
       (long "sparse"
        <> short 's'
-       <> help "Whether to print memory locations that contain 0")
+       <> help "Don't print memory locations containing only 0x000000 in the memory dump")
   <*> flag False True
       (long "norun"
        <> short 'r'
-       <> help "Don't run the MiMa. Continues as if the initial state was the result of running the MiMa.")
+       <> help "Don't run the MiMa. Use the initial state for all further actions")
 
 opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1

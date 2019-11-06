@@ -21,22 +21,22 @@ at address 0 (i. e. the first block).
 This program can load and run `.mima` files.
 
 ```
-$ ./mima-run --help
+$ mima-run --help
 Usage: mima-run INFILE [-n|--steps N] [-d|--dump OUTFILE] [-q|--quiet]
                 [-s|--sparse] [-r|--norun]
 
 Available options:
   -h,--help                Show this help text
-  INFILE                   The memory dump to load and execute
+  INFILE                   The binary memory dump to load and execute
   -n,--steps N             How many instructions to execute (if not specified,
                            runs until HALT or execution exception)
-  -d,--dump OUTFILE        If specified, the MiMa's memory is dumped to this
-                           file after execution is finished
-  -q,--quiet               Whether to print the memory after execution is
-                           finished
-  -s,--sparse              Whether to print memory locations that contain 0
-  -r,--norun               Don't run the MiMa. Continues as if the initial state
-                           was the result of running the MiMa.
+  -d,--dump OUTFILE        If specified, write the MiMa's binary memory dump to
+                           this file after execution is finished
+  -q,--quiet               Don't print the memory dump
+  -s,--sparse              Don't print memory locations containing only 0x000000
+                           in the memory dump
+  -r,--norun               Don't run the MiMa. Use the initial state for all
+                           further actions
 ```
 
 ## Conventions
