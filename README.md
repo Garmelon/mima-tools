@@ -1,24 +1,140 @@
 # mima-tools
 
+## MiMa specification
+
+### General
+
+The MiMa uses words of 24 bits and addresses of 20 bits.
+
+Each step, the MiMa fetches the value at the address stored in the
+`IAR`, interprets it as an instruction and executes it. If the
+instruction does not explicitly modify the `IAR`, it is incremented by
+1 automatically.
+
+During execution, multiple situations can be encountered where
+execution should not be continued, for example:
+
+* After the `HALT` instruction was executed
+* The value stored at the current address of the `IAR` cannot be
+  decoded to a valid instruction
+* The instruction pointer is at value `0xFFFFF` and the instruction
+  does not modify the `IAR`
+
+In those cases, a MiMa emulator should stop execution and show a
+suitable error message explaining why execution could not continue.
+
+### Instructions
+
+An instruction has one of the following forms:
+```
+Small opcode:
++----+ +-----------------------+
+| SO | |         Value/Address |
++----+ +-----------------------+
+23  20 19                      0
+
+Large opcode:
++----+ +----+ +----------------+
+|  F | | LO | |          Value |
++----+ +----+ +----------------+
+23  20 19  16 15               0
+```
+
+Small opcodes can range from `0` to `E` and have an address or 20-bit
+value as argument. Large opcodes can range from `F0` to `FF` and have,
+if at all, a 16-bit value as argument.
+
+### Registers
+
+| Name  | Size (bits) | Function                     |
+|-------|-------------|------------------------------|
+| `IAR` |          20 | Instruction Address Register |
+| `ACC` |          24 | Accumulator                  |
+| `RA`  |          20 | Return Address               |
+| `SP`  |          20 | Stack Pointer                |
+| `FP`  |          20 | Frame Pointer                |
+
+### Opcodes
+
+| Opcode | Name                                        | Function                       | Notes                              |
+|--------|---------------------------------------------|--------------------------------|------------------------------------|
+| `0`    | `LDC c` (load constant)                     | `c -> ACC`                     | Upper 4 bits of `ACC` are set to 0 |
+| `1`    | `LDV a` (load value)                        | `<a> -> ACC`                   |                                    |
+| `2`    | `STV a` (store value)                       | `ACC -> <a>`                   |                                    |
+| `3`    | `ADD a`                                     | `ACC + <a> -> ACC`             |                                    |
+| `4`    | `AND a`                                     | `ACC and <a> -> ACC`           | Bitwise operation                  |
+| `5`    | `OR a`                                      | `ACC or <a> -> ACC`            | Bitwise operation                  |
+| `6`    | `XOR a`                                     | `ACC xor <a> -> ACC`           | Bitwise operation                  |
+| `7`    | `EQL a` (equal)                             | `(ACC == <a> ? -1 : 0) -> ACC` |                                    |
+| `8`    | `JMP a` (jump)                              | `a -> IAR`                     |                                    |
+| `9`    | `JMN a` (jump if negative)                  | `if (ACC < 0) {a -> IAR}`      |                                    |
+| `A`    | `LDIV a` (load indirect value)              | `<<a>> -> ACC`                 | Upper 4 bits of `<a>` are ignored  |
+| `B`    | `STIV a` (store indirect value)             | `ACC -> <<a>>`                 | Upper 4 bits of `<a>` are ignored  |
+| `C`    | `CALL a`                                    | `IAR -> RA; JMP a`             |                                    |
+| `D`    | `LDVR d` (load value with relative offset)  | `<SP + d> -> ACC`              |                                    |
+| `E`    | `STVR d` (store value with relative offset) | `ACC -> <SP + d>`              |                                    |
+| `F0`   | `HALT`                                      | Halt execution                 |                                    |
+| `F1`   | `NOT`                                       | `not ACC -> ACC`               | Bitwise operation                  |
+| `F2`   | `RAR` (rotate ACC right)                    | `ACC >> 1 -> ACC`              | See below                          |
+| `F3`   | `RET` (return)                              | `RA -> IAR`                    |                                    |
+| `F4`   | `LDSP` (load from SP)                       | `SP -> ACC`                    |                                    |
+| `F5`   | `STSP` (store to SP)                        | `ACC -> SP`                    |                                    |
+| `F6`   | `LDFP` (load from FP)                       | `FP -> ACC`                    |                                    |
+| `F7`   | `STFP` (store to FP)                        | `ACC -> FP`                    |                                    |
+| `F8`   | `LDRA` (load from RA)                       | `RA -> ACC`                    |                                    |
+| `F9`   | `STRA` (store to RA)                        | `ACC -> RA`                    |                                    |
+| `FA`   | `ADC c` (add constant)                      | `ACC + c -> ACC`               | See below                          |
+
+- `RAR` shifts all bits in the `ACC` right by one. The rightmost bit wraps around to the leftmost position.
+- `ADC c` interprets bits 15-0 as a signed integer, whose value is then added to the `ACC`'s current value.
+
 ## File format
 
-All tools share a common file format, which basically just contains
-the MiMa's initial memory state. Its file extension is `.mima`.
+All tools share a common file format with extension `.mima`. It
+contains the whole execution state of a MiMa, meaning the contents of
+its memory and all its registers.
 
-A MiMa operates on words of 24 bits, so the file is split up into
-blocks of 3 bytes, written directly one after the other with nothing
-in-between. The bytes within one 3-byte block are ordered from most
-significant to least significant.
+The file is split up into blocks of 3 bytes, which form MiMa
+words. The bytes within a word are ordered from most to least
+significant.
 
-The file contains no metadata. Opcodes are the same as specified in
-the lecture. The first block is at address 0. MiMa's execution starts
-at address 0 (i. e. the first block).
+The values of registers which are only 20 bits long are stored in the
+lower 20 bits of a MiMa word, and the remaining bits 23-20 are filled
+with zeroes, like so:
+```
++----+ +-----------------------+
+|  0 | | 20-bit register value |
++----+ +-----------------------+
+23  20 19                      0
+```
+
+The registers and memory are stored as follows:
+
+| Word          | Content     |
+|---------------+-------------|
+|             0 | `IR`        |
+|             1 | `ACC`       |
+|             2 | `RA`        |
+|             3 | `SP`        |
+|             4 | `FP`        |
+| starting at 6 | Memory dump |
+
+The memory dump contains the words of the MiMa's memory, written in
+increasing order directly one after the other with nothing
+in-between. The dump always starts at address `0x00000`, but may end
+before it reaches address `0xFFFFF`. When reading a dump, all
+unspecified values are to be intialized as `0x000000`.
+
+A `.mima` file must always be a multiple of 3 bytes long. It must
+always be at least 15 bytes long (contains all register values).
 
 ## Programs
 
 ### `mima-run`
 
 This program can load and run `.mima` files.
+
+It currently does not follow the specification above.
 
 ```
 $ mima-run --help
