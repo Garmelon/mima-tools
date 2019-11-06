@@ -43,8 +43,8 @@ memoryToWords :: MimaMemory -> [MimaWord]
 memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
 
 addrWordLegend :: T.Text
-addrWordLegend = "UO: Upper Opcode (bits 24-21)     LO: Lower Opcode (bits 20-17)\n"
-                 <> "Addr  (decimal)    -    Word   ( decimal|UO,LO,   Addr)    -    Instruction\n"
+addrWordLegend = "SO: Small Opcode (bits 23-20)    LO: Large Opcode (bits 19-16)\n"
+                 <> "Addr  (decimal)    -    Word   ( decimal|SO,LO,   Addr)    -    Instruction\n"
 
 addrWordToText :: MimaAddress -> MimaWord -> T.Text
 addrWordToText addr word =
