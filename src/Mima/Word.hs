@@ -78,7 +78,7 @@ instance Bits MimaWord where
 bytesToWord :: Word8 -> Word8 -> Word8 -> MimaWord
 bytesToWord w1 w2 w3 =
   let (w1', w2', w3') = (fromIntegral w1, fromIntegral w2, fromIntegral w3)
-  in  fromWord32 $ w1' .|. shiftL w2' 8 .|. shiftL w3' 16
+  in  fromWord32 $ shiftL w1' 16 .|. shiftL w2' 8 .|. w3'
 
 wordToBytes :: MimaWord -> (Word8, Word8, Word8)
 wordToBytes mw =
