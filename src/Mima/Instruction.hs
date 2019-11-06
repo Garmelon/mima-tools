@@ -7,7 +7,6 @@ module Mima.Instruction
   , wordToInstruction
   ) where
 
-import           Data.Bits
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Word
@@ -65,14 +64,6 @@ instance ToText Instruction where
   toText (SmallInstruction oc addr) = toText oc <> " " <> toText addr
   toText (LargeInstruction oc)      = toText oc
 
-upperOpcode :: MimaWord -> Word32
-upperOpcode mw = shiftR (toWord32 mw) 20 .&. 0xF
-
-lowerOpcode :: MimaWord -> Word32
-lowerOpcode mw = shiftR (toWord32 mw) 16 .&. 0xF
-
-address :: MimaWord -> MimaAddress
-address = fromWord32 . toWord32 -- no shifting required
 
 wordToInstruction :: MimaWord -> Either T.Text Instruction
 wordToInstruction mw = if upperOpcode mw == 0xF

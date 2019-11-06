@@ -1,12 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Mima.Word
-  ( Word32Based(..)
-  , MimaWord
+  ( MimaWord
   , wordFromBool
   , topBit
+  , upperOpcode
+  , lowerOpcode
+  , address
   , addWords
   , MimaAddress
+  , addressToWord
   ) where
 
 import           Data.Bits
@@ -77,6 +80,15 @@ wordFromBool True  = complement zeroBits
 topBit :: MimaWord -> Bool
 topBit mw = testBit (toWord32 mw) (wordSize - 1)
 
+upperOpcode :: MimaWord -> Word32
+upperOpcode mw = shiftR (toWord32 mw) 20 .&. 0xF
+
+lowerOpcode :: MimaWord -> Word32
+lowerOpcode mw = shiftR (toWord32 mw) 16 .&. 0xF
+
+address :: MimaWord -> MimaAddress
+address = fromWord32 . toWord32
+
 addWords :: MimaWord -> MimaWord -> MimaWord
 addWords mw1 mw2 = fromWord32 $ toWord32 mw1 + toWord32 mw2
 
@@ -110,3 +122,6 @@ instance Enum MimaAddress where
         else error $ "Enum.toEnum{MimaAddress}: tag (" ++ show i
                      ++ ") is out of bounds " ++ show (lower, upper)
   fromEnum = fromEnum . toWord32
+
+addressToWord :: MimaAddress -> MimaWord
+addressToWord = fromWord32 . toWord32

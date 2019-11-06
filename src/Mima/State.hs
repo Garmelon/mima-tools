@@ -73,7 +73,7 @@ step ms = do
     (LargeInstruction oc)           -> executeLargeOpcode oc ms
 
 executeSmallOpcode :: SmallOpcode -> MimaAddress -> MimaState -> Either ExecException MimaState
-executeSmallOpcode LDC addr ms = incrementIp ms{msAcc = fromWord32 $ toWord32 addr}
+executeSmallOpcode LDC addr ms = incrementIp ms{msAcc = addressToWord addr}
 executeSmallOpcode LDV addr ms = incrementIp ms{msAcc = readAt addr (msMemory ms)}
 executeSmallOpcode STV addr ms = incrementIp ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
 executeSmallOpcode ADD addr ms = incrementIp ms{msAcc = addWords (msAcc ms) (readAt addr $ msMemory ms)}
