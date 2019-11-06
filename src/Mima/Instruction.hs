@@ -4,7 +4,7 @@ module Mima.Instruction
   ( SmallOpcode(..)
   , LargeOpcode(..)
   , Instruction(..)
-  , instructionFromWord
+  , wordToInstruction
   ) where
 
 import           Data.Bits
@@ -57,8 +57,8 @@ largeOpcodeMap :: Map.Map Word32 LargeOpcode
 largeOpcodeMap = Map.fromList [(getLargeOpcode oc, oc) | oc <- allLargeOpcodes]
 
 data Instruction
-  = SmallInstruction SmallOpcode MimaAddress
-  | LargeInstruction LargeOpcode
+  = SmallInstruction !SmallOpcode !MimaAddress
+  | LargeInstruction !LargeOpcode
   deriving (Show, Eq)
 
 instance ToText Instruction where
@@ -74,10 +74,10 @@ lowerOpcode mw = shiftR (toWord32 mw) 16 .&. 0xF
 address :: MimaWord -> MimaAddress
 address = fromWord32 . toWord32 -- no shifting required
 
-instructionFromWord :: MimaWord -> Either T.Text Instruction
-instructionFromWord mw = if upperOpcode mw == 0xF
-                         then parseLargeInstruction mw
-                         else parseSmallInstruction mw
+wordToInstruction :: MimaWord -> Either T.Text Instruction
+wordToInstruction mw = if upperOpcode mw == 0xF
+                       then parseLargeInstruction mw
+                       else parseSmallInstruction mw
 
 parseSmallInstruction :: MimaWord -> Either T.Text Instruction
 parseSmallInstruction mw = do
