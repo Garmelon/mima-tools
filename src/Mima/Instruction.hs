@@ -14,14 +14,14 @@ import           Data.Word
 import           Mima.Util
 import           Mima.Word
 
-data SmallOpcode = LDC | LDV | STV | ADD | AND | OR | XOR | EQL | JMP | JMN | STIV | LDIV
+data SmallOpcode = LDC | LDV | STV | ADD | AND | OR | XOR | EQL | JMP | JMN | LDIV | STIV
   deriving (Show, Eq, Ord)
 
 instance ToText SmallOpcode where
   toText = T.pack . show
 
 allSmallOpcodes :: [SmallOpcode]
-allSmallOpcodes = [LDC, LDV, STV, ADD, AND, OR, XOR, EQL, JMP, JMN, STIV, LDIV]
+allSmallOpcodes = [LDC, LDV, STV, ADD, AND, OR, XOR, EQL, JMP, JMN, LDIV, STIV]
 
 getSmallOpcode :: SmallOpcode -> Word32
 getSmallOpcode LDC = 0
@@ -34,8 +34,8 @@ getSmallOpcode XOR = 6
 getSmallOpcode EQL = 7
 getSmallOpcode JMP = 8
 getSmallOpcode JMN = 9
-getSmallOpcode STIV = 10
-getSmallOpcode LDIV = 11
+getSmallOpcode LDIV = 10
+getSmallOpcode STIV = 11
 
 smallOpcodeMap :: Map.Map Word32 SmallOpcode
 smallOpcodeMap = Map.fromList [(getSmallOpcode oc, oc) | oc <- allSmallOpcodes]
