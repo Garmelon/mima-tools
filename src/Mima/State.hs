@@ -42,11 +42,18 @@ wordsToMemory = MimaMemory
 memoryToWords :: MimaMemory -> [MimaWord]
 memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
 
-addressWordToText :: MimaAddress -> MimaWord -> T.Text
-addressWordToText addr word =
+addrWordLegend :: T.Text
+addrWordLegend = "UO: Upper Opcode (bits 24-21)     LO: Lower Opcode (bits 20-17)\n"
+                 <> "Addr  (decimal)    -    Word   ( decimal|UO,LO,   Addr)    -    Instruction\n"
+
+addrWordToText :: MimaAddress -> MimaWord -> T.Text
+addrWordToText addr word =
   let separator = "    -    "
       addrText  = addrToHex addr <> " (" <> addrToDec addr <> ")"
-      wordText  = wordToHex word <> " (" <> wordToDec word <> ")"
+      wordSplit = toDec 2 (upperOpcode word) <> ","
+                  <> toDec 2 (lowerOpcode word) <> ","
+                  <> addrToDec (address word)
+      wordText  = wordToHex word <> " (" <> wordToDec word <> "|" <> wordSplit <> ")"
       instrText = case wordToInstruction word of
         Left _  -> ""
         Right i -> separator <> toText i
@@ -54,8 +61,9 @@ addressWordToText addr word =
 
 memoryToText :: Bool -> MimaMemory -> T.Text
 memoryToText sparse mem@(MimaMemory m)
-  = T.intercalate "\n"
-  $ map (\addr -> addressWordToText addr (readAt addr mem))
+  = (addrWordLegend <>)
+  $ T.intercalate "\n"
+  $ map (\addr -> addrWordToText addr (readAt addr mem))
   $ addresses sparse
   where
     addresses False = addressRange mem

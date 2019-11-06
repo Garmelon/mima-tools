@@ -79,12 +79,12 @@ main = do
   let s = initialState mem
   s' <- if norun settings then pure s else runMima settings s
 
-  T.putStrLn $ "IP: " <> addrToHexDec (msIp s') <> "     "
-    <> "Acc: " <> wordToHexDec (msAcc s')
-
   unless (quiet settings) $ do
-    putStrLn "Dump of memory:"
+    putStrLn "\nDump of memory:"
+    T.putStrLn $ "IP: " <> addrToHexDec (msIp s') <> "     "
+                 <> "Acc: " <> wordToHexDec (msAcc s')
     T.putStrLn $ memoryToText (sparse settings) (msMemory s')
+    putStrLn ""
 
   forM_ (memoryDump settings) $ \path -> do
     putStrLn $ "Saving memdump at " ++ path
