@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module MimaRun where
 
 import           Control.Monad
@@ -7,6 +9,7 @@ import           Options.Applicative
 import           Mima.Load
 import           Mima.State
 import           Mima.Util
+import           Mima.Word
 
 data Settings = Settings
   { infile     :: String
@@ -53,12 +56,17 @@ runMima settings s =
   case steps settings of
     Nothing -> do
       putStrLn "Running until HALT or execution exception..."
-      let (s', e) = run s
+      let (s', e, x) = run s
+      putStrLn $ "Ran for " ++ show x ++ " steps"
       T.putStrLn $ toText e
       pure s'
-    Just _  -> do
-      putStrLn "This option is currently not supported"
-      undefined
+    Just n  -> do
+      let (s', me, x) = runN n s
+      putStrLn $ "Ran for " ++ show x ++ " steps"
+      case me of
+        Nothing -> putStrLn "Encountered no exception"
+        Just e  -> T.putStrLn $ toText e
+      pure s'
 
 -- TODO exception handling
 main :: IO ()
@@ -70,6 +78,9 @@ main = do
 
   let s = initialState mem
   s' <- if norun settings then pure s else runMima settings s
+
+  T.putStrLn $ "IP: " <> addrToHexDec (msIp s') <> "     "
+    <> "Acc: " <> wordToHexDec (msAcc s')
 
   unless (quiet settings) $ do
     putStrLn "Dump of memory:"

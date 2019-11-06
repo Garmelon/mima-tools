@@ -13,6 +13,7 @@ module Mima.State
   , ExecException(..)
   , step
   , run
+  , runN
   ) where
 
 import           Data.Bits
@@ -146,8 +147,20 @@ executeLargeOpcode HALT ms =
 executeLargeOpcode NOT  ms = incrementIp ms{msAcc = complement (msAcc ms)}
 executeLargeOpcode RAR  ms = incrementIp ms{msAcc = rotateR (msAcc ms) 1}
 
-run :: MimaState -> (MimaState, ExecException)
-run ms =
-  case step ms of
-    Left e    -> (ms, e)
-    Right ms' -> run ms'
+run :: MimaState -> (MimaState, ExecException, Integer)
+run ms = helper 0 ms
+  where
+    helper completed s =
+      case step s of
+        Left e   -> (s, e, completed)
+        Right s' -> helper (completed + 1) s'
+
+runN :: Integer -> MimaState -> (MimaState, Maybe ExecException, Integer)
+runN n ms = helper 0 ms
+  where
+    helper completed s =
+      if completed >= n
+      then (s, Nothing, completed)
+      else case step s of
+        Left e   -> (s, Just e, completed)
+        Right s' -> helper (completed + 1) s'
