@@ -33,7 +33,10 @@ addressRange (MimaMemory m) =
   in  [minBound..maxAddr]
 
 wordsToMemory :: [MimaWord] -> MimaMemory
-wordsToMemory = MimaMemory . Map.fromAscList . zip [minBound..]
+wordsToMemory = MimaMemory
+              . Map.filter (/= zeroBits)
+              . Map.fromAscList
+              . zip [minBound..]
 
 memoryToWords :: MimaMemory -> [MimaWord]
 memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
