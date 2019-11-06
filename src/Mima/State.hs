@@ -9,6 +9,7 @@ module Mima.State
   , AbortReason(..)
   , ExecException(..)
   , step
+  , run
   ) where
 
 import           Data.Bits
@@ -98,3 +99,9 @@ executeLargeOpcode HALT ms =
   in   Left $ ExecException addr word Halted
 executeLargeOpcode NOT  ms = incrementIp ms{msAcc = complement (msAcc ms)}
 executeLargeOpcode RAR  ms = incrementIp ms{msAcc = rotateR (msAcc ms) 1}
+
+run :: MimaState -> (MimaState, ExecException)
+run ms =
+  case step ms of
+    Left e    -> (ms, e)
+    Right ms' -> run ms'
