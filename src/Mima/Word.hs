@@ -2,7 +2,9 @@
 
 module Mima.Word
   ( MimaWord
-  , wordFromBool
+  , bytesToWord
+  , wordToBytes
+  , boolToWord
   , topBit
   , upperOpcode
   , lowerOpcode
@@ -73,9 +75,24 @@ instance Bits MimaWord where
   isSigned = const True
   popCount = popCount . toWord32
 
-wordFromBool :: Bool -> MimaWord
-wordFromBool False = zeroBits
-wordFromBool True  = complement zeroBits
+bytesToWord :: Word8 -> Word8 -> Word8 -> MimaWord
+bytesToWord w1 w2 w3 =
+  let (w1', w2', w3') = (fromIntegral w1, fromIntegral w2, fromIntegral w3)
+  in  fromWord32 $ w1' .|. shiftL w2' 8 .|. shiftL w3' 16
+
+wordToBytes :: MimaWord -> (Word8, Word8, Word8)
+wordToBytes mw =
+  let w = toWord32 mw
+      -- Mask for w1 not strictly necessary, since upper bytes are
+      -- already zero due to implementation of 'fromWord32'.
+      w1 = fromIntegral $ shiftR w 16 .&. 0xFF 
+      w2 = fromIntegral $ shiftR w 8  .&. 0xFF
+      w3 = fromIntegral $          w  .&. 0xFF
+  in  (w1, w2, w3)
+
+boolToWord :: Bool -> MimaWord
+boolToWord False = zeroBits
+boolToWord True  = complement zeroBits
 
 topBit :: MimaWord -> Bool
 topBit mw = testBit (toWord32 mw) (wordSize - 1)

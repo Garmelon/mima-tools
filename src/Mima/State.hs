@@ -1,6 +1,7 @@
 module Mima.State
   ( MimaMemory
   , wordsToMemory
+  , memoryToWords
   , readAt
   , writeAt
   , MimaState(..)
@@ -12,6 +13,7 @@ module Mima.State
 
 import           Data.Bits
 import qualified Data.Map as Map
+import           Data.Maybe
 import qualified Data.Text as T
 
 import           Mima.Instruction
@@ -22,6 +24,11 @@ newtype MimaMemory = MimaMemory (Map.Map MimaAddress MimaWord)
 
 wordsToMemory :: [MimaWord] -> MimaMemory
 wordsToMemory = MimaMemory . Map.fromAscList . zip [minBound..]
+
+memoryToWords :: MimaMemory -> [MimaWord]
+memoryToWords mem@(MimaMemory m) =
+  let maxAddr = fromMaybe minBound $ fst <$> Map.lookupMax m
+  in  map (\addr -> readAt addr mem) [minBound..maxAddr]
 
 readAt :: MimaAddress -> MimaMemory -> MimaWord
 readAt addr (MimaMemory m) = Map.findWithDefault zeroBits addr m
@@ -80,7 +87,7 @@ executeSmallOpcode ADD addr ms = incrementIp ms{msAcc = addWords (msAcc ms) (rea
 executeSmallOpcode AND addr ms = incrementIp ms{msAcc = msAcc ms .&.   readAt addr (msMemory ms)}
 executeSmallOpcode OR  addr ms = incrementIp ms{msAcc = msAcc ms .|.   readAt addr (msMemory ms)}
 executeSmallOpcode XOR addr ms = incrementIp ms{msAcc = msAcc ms `xor` readAt addr (msMemory ms)}
-executeSmallOpcode EQL addr ms = incrementIp ms{msAcc = wordFromBool $ msAcc ms == readAt addr (msMemory ms)}
+executeSmallOpcode EQL addr ms = incrementIp ms{msAcc = boolToWord $ msAcc ms == readAt addr (msMemory ms)}
 executeSmallOpcode JMP addr ms = pure ms{msIp = addr}
 executeSmallOpcode JMN addr ms = if topBit (msAcc ms) then pure ms{msIp = addr} else incrementIp ms
 
