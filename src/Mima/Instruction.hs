@@ -63,7 +63,7 @@ data Instruction
   deriving (Show, Eq)
 
 instance ToText Instruction where
-  toText (SmallInstruction oc addr) = toText oc <> " " <> toText addr
+  toText (SmallInstruction oc addr) = toText oc <> " 0x" <> addrToHex addr
   toText (LargeInstruction oc)      = toText oc
 
 

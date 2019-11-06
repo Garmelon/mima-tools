@@ -1,17 +1,33 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Mima.Word
-  ( MimaWord
+  (
+  -- * MiMa-Word
+    MimaWord
+  -- ** Formatting
+  , wordToDec
+  , wordToHex
+  , wordToHexDec
+  -- ** Converting
   , bytesToWord
   , wordToBytes
   , boolToWord
+  -- ** Querying
+  , wordSize
   , topBit
   , upperOpcode
   , lowerOpcode
   , address
+  -- ** Adding
   , addWords
+  -- * MiMa-Addresses
   , MimaAddress
-  , addressToWord
+  -- ** Formatting
+  , addrToDec
+  , addrToHex
+  , addrToHexDec
+  -- ** Converting
+  , addrToWord
   ) where
 
 import           Data.Bits
@@ -35,11 +51,17 @@ newtype MimaWord = MimaWord Word32
 wordSize :: Int
 wordSize = 24
 
-instance ToText MimaWord where
-  toText (MimaWord w) = toHex 6 w
+wordToDec :: MimaWord -> T.Text
+wordToDec (MimaWord w) = toDec 8 w
+
+wordToHex :: MimaWord -> T.Text
+wordToHex (MimaWord w) = toHex 6 w
+
+wordToHexDec :: MimaWord -> T.Text
+wordToHexDec mw = wordToHex mw <> " (" <> wordToDec mw <> ")"
 
 instance Show MimaWord where
-  show mw = T.unpack $ "MimaWord 0x" <> toText mw
+  show mw = T.unpack $ "MimaWord 0x" <> wordToHex mw
 
 instance Word32Based MimaWord where
   fromWord32 w = MimaWord $ w .&. 0x00FFFFFF
@@ -115,11 +137,17 @@ addWords mw1 mw2 = fromWord32 $ toWord32 mw1 + toWord32 mw2
 newtype MimaAddress = MimaAddress Word32
   deriving (Eq, Ord)
 
-instance ToText MimaAddress where
-  toText (MimaAddress w) = toHex 5 w
+addrToDec :: MimaAddress -> T.Text
+addrToDec (MimaAddress a) = toDec 7 a
+
+addrToHex :: MimaAddress -> T.Text
+addrToHex (MimaAddress a) = toHex 5 a
+
+addrToHexDec :: MimaAddress -> T.Text
+addrToHexDec ma = addrToHex ma <> " (" <> addrToDec ma <> ")"
 
 instance Show MimaAddress where
-  show ma = T.unpack $ "MimaAddress 0x" <> toText ma
+  show ma = T.unpack $ "MimaAddress 0x" <> addrToHex ma
 
 instance Word32Based MimaAddress where
   fromWord32 w = MimaAddress $ w .&. 0x000FFFFF
@@ -140,5 +168,5 @@ instance Enum MimaAddress where
                      ++ ") is out of bounds " ++ show (lower, upper)
   fromEnum = fromEnum . toWord32
 
-addressToWord :: MimaAddress -> MimaWord
-addressToWord = fromWord32 . toWord32
+addrToWord :: MimaAddress -> MimaWord
+addrToWord = fromWord32 . toWord32

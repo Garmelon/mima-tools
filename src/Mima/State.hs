@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Mima.State
   ( MimaMemory
   , wordsToMemory
   , memoryToWords
+  , memoryToText
   , readAt
   , writeAt
   , MimaState(..)
@@ -18,18 +21,35 @@ import           Data.Maybe
 import qualified Data.Text as T
 
 import           Mima.Instruction
+import           Mima.Util
 import           Mima.Word
 
 newtype MimaMemory = MimaMemory (Map.Map MimaAddress MimaWord)
   deriving (Show)
 
+addressRange :: MimaMemory -> [MimaAddress]
+addressRange (MimaMemory m) =
+  let maxAddr = fromMaybe minBound $ fst <$> Map.lookupMax m
+  in  [minBound..maxAddr]
+
 wordsToMemory :: [MimaWord] -> MimaMemory
 wordsToMemory = MimaMemory . Map.fromAscList . zip [minBound..]
 
 memoryToWords :: MimaMemory -> [MimaWord]
-memoryToWords mem@(MimaMemory m) =
-  let maxAddr = fromMaybe minBound $ fst <$> Map.lookupMax m
-  in  map (\addr -> readAt addr mem) [minBound..maxAddr]
+memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
+
+addressWordToText :: MimaAddress -> MimaWord -> T.Text
+addressWordToText addr word =
+  addrToHex addr <> " (" <> addrToDec addr <> ") - " <> wordToHex word <> " (" <> wordToDec word <> ")"
+
+memoryToText :: Bool -> MimaMemory -> T.Text
+memoryToText sparse mem@(MimaMemory m)
+  = T.intercalate "\n"
+  $ map (\addr -> addressWordToText addr (readAt addr mem))
+  $ addresses sparse
+  where
+    addresses False = addressRange mem
+    addresses True  = Map.keys m
 
 readAt :: MimaAddress -> MimaMemory -> MimaWord
 readAt addr (MimaMemory m) = Map.findWithDefault zeroBits addr m
@@ -55,8 +75,17 @@ initialState mem = MimaState
 data AbortReason = Halted | InvalidInstruction T.Text | InvalidNextIpAddress
   deriving (Show)
 
+instance ToText AbortReason where
+  toText Halted = "Halted"
+  toText (InvalidInstruction t) = "Invalid instruction: " <> t
+  toText InvalidNextIpAddress = "Invalid next IP address"
+
 data ExecException = ExecException MimaAddress MimaWord AbortReason
   deriving (Show)
+
+instance ToText ExecException where
+  toText (ExecException addr word reason) =
+    "Exception at " <> addrToHexDec addr <> " with word " <> wordToHexDec word <> ": " <> toText reason
 
 incrementIp :: MimaState -> Either ExecException MimaState
 incrementIp ms =
@@ -81,7 +110,7 @@ step ms = do
     (LargeInstruction oc)           -> executeLargeOpcode oc ms
 
 executeSmallOpcode :: SmallOpcode -> MimaAddress -> MimaState -> Either ExecException MimaState
-executeSmallOpcode LDC  addr ms = incrementIp ms{msAcc = addressToWord addr}
+executeSmallOpcode LDC  addr ms = incrementIp ms{msAcc = addrToWord addr}
 executeSmallOpcode LDV  addr ms = incrementIp ms{msAcc = readAt addr (msMemory ms)}
 executeSmallOpcode STV  addr ms = incrementIp ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
 executeSmallOpcode ADD  addr ms = incrementIp ms{msAcc = addWords (msAcc ms) (readAt addr $ msMemory ms)}

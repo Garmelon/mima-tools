@@ -1,5 +1,6 @@
 module Mima.Util
   ( ToText(..)
+  , toDec
   , toHex
   ) where
 
@@ -18,6 +19,9 @@ import qualified Numeric as N
 -- instead name the functions individually.
 class ToText a where
   toText :: a -> T.Text
+
+toDec :: (Integral a, Show a) => Int -> a -> T.Text
+toDec digits a = T.justifyRight digits ' ' $ T.pack $ show a
 
 toHex :: (Integral a, Show a) => Int -> a -> T.Text
 toHex digits a = T.justifyRight digits '0' $ T.pack $ N.showHex a ""
