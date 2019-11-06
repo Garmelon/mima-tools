@@ -16,23 +16,28 @@ at address 0 (i. e. the first block).
 
 ## Programs
 
-These programs are just ideas at this point, but will hopefully be
-working one day.
+### `mima-run`
 
-### mima-run
+This program can load and run `.mima` files.
 
-This program can load and run `.mima` files at a specified processor
-speed (given in instructions per second).
+```
+$ ./mima-run --help
+Usage: mima-run INFILE [-n|--steps N] [-d|--dump OUTFILE] [-q|--quiet]
+                [-s|--sparse] [-r|--norun]
 
-I don't know how IO is going to happen on this machine. Maybe I'll
-just print a memory dump once the `HALT` instruction was encountered,
-or maybe I'll use left over instructions to add a brainfuck-like print
-command. Or maybe there is already a solution designed into the MiMa?
-
-### mima-debug
-
-This program is like `mima-run`, but also contains a live debugging
-TUI.
+Available options:
+  -h,--help                Show this help text
+  INFILE                   The memory dump to load and execute
+  -n,--steps N             How many instructions to execute (if not specified,
+                           runs until HALT or execution exception)
+  -d,--dump OUTFILE        If specified, the MiMa's memory is dumped to this
+                           file after execution is finished
+  -q,--quiet               Whether to print the memory after execution is
+                           finished
+  -s,--sparse              Whether to print memory locations that contain 0
+  -r,--norun               Don't run the MiMa. Continues as if the initial state
+                           was the result of running the MiMa.
+```
 
 ## Conventions
 
