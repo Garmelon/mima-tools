@@ -1,8 +1,13 @@
 module Mima.State
   ( MimaMemory
+  , wordsToMemory
   , readAt
   , writeAt
   , MimaState(..)
+  , initialState
+  , AbortReason(..)
+  , ExecException(..)
+  , step
   ) where
 
 import           Data.Bits
@@ -13,6 +18,10 @@ import           Mima.Instruction
 import           Mima.Word
 
 newtype MimaMemory = MimaMemory (Map.Map MimaAddress MimaWord)
+  deriving (Show)
+
+wordsToMemory :: [MimaWord] -> MimaMemory
+wordsToMemory = MimaMemory . Map.fromAscList . zip [minBound..]
 
 readAt :: MimaAddress -> MimaMemory -> MimaWord
 readAt addr (MimaMemory m) = Map.findWithDefault zeroBits addr m
@@ -26,10 +35,20 @@ data MimaState = MimaState
   { msIp     :: !MimaAddress
   , msAcc    :: !MimaWord
   , msMemory :: !MimaMemory
+  } deriving (Show)
+
+initialState :: MimaMemory -> MimaState
+initialState mem = MimaState
+  { msIp     = minBound
+  , msAcc    = zeroBits
+  , msMemory = mem
   }
 
 data AbortReason = Halted | InvalidInstruction T.Text | InvalidNextIpAddress
+  deriving (Show)
+
 data ExecException = ExecException MimaAddress MimaWord AbortReason
+  deriving (Show)
 
 incrementIp :: MimaState -> Either ExecException MimaState
 incrementIp ms =
