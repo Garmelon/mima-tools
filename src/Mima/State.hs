@@ -43,7 +43,13 @@ memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
 
 addressWordToText :: MimaAddress -> MimaWord -> T.Text
 addressWordToText addr word =
-  addrToHex addr <> " (" <> addrToDec addr <> ") - " <> wordToHex word <> " (" <> wordToDec word <> ")"
+  let separator = "    -    "
+      addrText  = addrToHex addr <> " (" <> addrToDec addr <> ")"
+      wordText  = wordToHex word <> " (" <> wordToDec word <> ")"
+      instrText = case wordToInstruction word of
+        Left _  -> ""
+        Right i -> separator <> toText i
+  in  addrText <> separator <> wordText <> instrText
 
 memoryToText :: Bool -> MimaMemory -> T.Text
 memoryToText sparse mem@(MimaMemory m)

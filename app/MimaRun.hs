@@ -1,17 +1,24 @@
 module MimaRun where
 
-import Options.Applicative
+import           Control.Monad
+import qualified Data.Text.IO as T
+import           Options.Applicative
+
+import           Mima.Load
+import           Mima.State
+import           Mima.Util
 
 data Settings = Settings
-  { file         :: String
-  , steps        :: Maybe Integer
-  , memoryDump   :: Maybe FilePath
-  , quiet        :: Bool
-  , sparseOutput :: Bool
+  { infile     :: String
+  , steps      :: Maybe Integer
+  , memoryDump :: Maybe FilePath
+  , quiet      :: Bool
+  , sparse     :: Bool
+  , norun      :: Bool
   } deriving (Show)
 
-settings :: Parser Settings
-settings = Settings
+settingsParser :: Parser Settings
+settingsParser = Settings
   <$> strArgument
       (metavar "INFILE"
        <> help "The memory dump to load and execute")
@@ -33,9 +40,41 @@ settings = Settings
       (long "sparse"
        <> short 's'
        <> help "Whether to print memory locations that contain 0")
+  <*> flag False True
+      (long "norun"
+       <> short 'r'
+       <> help "Don't run the MiMa. Continues as if the initial state was the result of running the MiMa.")
 
 opts :: ParserInfo Settings
-opts = info (helper <*> settings) $ fullDesc <> failureCode 1
+opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
 
+runMima :: Settings -> MimaState -> IO MimaState
+runMima settings s =
+  case steps settings of
+    Nothing -> do
+      putStrLn "Running until HALT or execution exception..."
+      let (s', e) = run s
+      T.putStrLn $ toText e
+      pure s'
+    Just _  -> do
+      putStrLn "This option is currently not supported"
+      undefined
+
+-- TODO exception handling
 main :: IO ()
-main = execParser opts >>= print
+main = do
+  settings <- execParser opts
+
+  putStrLn $ "Loading memdump at " ++ infile settings
+  mem <- loadMemoryFromFile (infile settings)
+
+  let s = initialState mem
+  s' <- if norun settings then pure s else runMima settings s
+
+  unless (quiet settings) $ do
+    putStrLn "Dump of memory:"
+    T.putStrLn $ memoryToText (sparse settings) (msMemory s')
+
+  forM_ (memoryDump settings) $ \path -> do
+    putStrLn $ "Saving memdump at " ++ path
+    saveMemoryToFile path $ msMemory s'
