@@ -81,16 +81,24 @@ step ms = do
     (LargeInstruction oc)           -> executeLargeOpcode oc ms
 
 executeSmallOpcode :: SmallOpcode -> MimaAddress -> MimaState -> Either ExecException MimaState
-executeSmallOpcode LDC addr ms = incrementIp ms{msAcc = addressToWord addr}
-executeSmallOpcode LDV addr ms = incrementIp ms{msAcc = readAt addr (msMemory ms)}
-executeSmallOpcode STV addr ms = incrementIp ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
-executeSmallOpcode ADD addr ms = incrementIp ms{msAcc = addWords (msAcc ms) (readAt addr $ msMemory ms)}
-executeSmallOpcode AND addr ms = incrementIp ms{msAcc = msAcc ms .&.   readAt addr (msMemory ms)}
-executeSmallOpcode OR  addr ms = incrementIp ms{msAcc = msAcc ms .|.   readAt addr (msMemory ms)}
-executeSmallOpcode XOR addr ms = incrementIp ms{msAcc = msAcc ms `xor` readAt addr (msMemory ms)}
-executeSmallOpcode EQL addr ms = incrementIp ms{msAcc = boolToWord $ msAcc ms == readAt addr (msMemory ms)}
-executeSmallOpcode JMP addr ms = pure ms{msIp = addr}
-executeSmallOpcode JMN addr ms = if topBit (msAcc ms) then pure ms{msIp = addr} else incrementIp ms
+executeSmallOpcode LDC  addr ms = incrementIp ms{msAcc = addressToWord addr}
+executeSmallOpcode LDV  addr ms = incrementIp ms{msAcc = readAt addr (msMemory ms)}
+executeSmallOpcode STV  addr ms = incrementIp ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
+executeSmallOpcode ADD  addr ms = incrementIp ms{msAcc = addWords (msAcc ms) (readAt addr $ msMemory ms)}
+executeSmallOpcode AND  addr ms = incrementIp ms{msAcc = msAcc ms .&.   readAt addr (msMemory ms)}
+executeSmallOpcode OR   addr ms = incrementIp ms{msAcc = msAcc ms .|.   readAt addr (msMemory ms)}
+executeSmallOpcode XOR  addr ms = incrementIp ms{msAcc = msAcc ms `xor` readAt addr (msMemory ms)}
+executeSmallOpcode EQL  addr ms = incrementIp ms{msAcc = boolToWord $ msAcc ms == readAt addr (msMemory ms)}
+executeSmallOpcode JMP  addr ms = pure ms{msIp = addr}
+executeSmallOpcode JMN  addr ms = if topBit (msAcc ms) then pure ms{msIp = addr} else incrementIp ms
+executeSmallOpcode STIV addr ms =
+  let mem = msMemory ms
+      indirAddr = address $ readAt addr mem
+  in  incrementIp ms{msMemory = writeAt indirAddr (msAcc ms) mem}
+executeSmallOpcode LDIV addr ms =
+  let mem = msMemory ms
+      indirAddr = address $ readAt addr mem
+  in  incrementIp ms{msAcc = readAt indirAddr mem}
 
 executeLargeOpcode :: LargeOpcode -> MimaState -> Either ExecException MimaState
 executeLargeOpcode HALT ms =
