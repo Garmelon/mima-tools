@@ -186,17 +186,18 @@ main = do
   settings <- execParser opts
 
   putStrLn $ "Loading memdump at " ++ infile settings
-  mem <- loadMemoryFromFile (infile settings)
+  ms <- loadStateFromFile (infile settings)
+  case ms of
+    Left errorMsg -> putStrLn errorMsg
+    Right s       -> do
+      s' <- if norun settings then pure s else runMima settings s
 
-  let s = initialState mem
-  s' <- if norun settings then pure s else runMima settings s
+      unless (quiet settings) $ do
+        putStrLn ""
+        putStrLn "Dump of MiMa state:"
+        printStateLn (sparse settings) s'
+        putStrLn ""
 
-  unless (quiet settings) $ do
-    putStrLn ""
-    putStrLn "Dump of MiMa state:"
-    printStateLn (sparse settings) s'
-    putStrLn ""
-
-  forM_ (memoryDump settings) $ \path -> do
-    putStrLn $ "Saving memdump at " ++ path
-    saveMemoryToFile path $ msMemory s'
+      forM_ (memoryDump settings) $ \path -> do
+        putStrLn $ "Saving memdump at " ++ path
+        saveStateToFile path s'

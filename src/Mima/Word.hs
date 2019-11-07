@@ -29,6 +29,11 @@ module Mima.Word
   , SmallValue
   -- ** Converting
   , signedSmallValueToWord
+  -- * Underlying types
+  , WB
+  , MimaWord_
+  , LargeValue_
+  , SmallValue_
   ) where
 
 import           Data.Bits
