@@ -62,37 +62,39 @@ ignored. They don't have to be set to 0.
 
 ### Opcodes
 
-| Opcode | Name                                        | Function                       | Notes                            |
-|--------|---------------------------------------------|--------------------------------|----------------------------------|
-| `0`    | `LDC c` (load constant)                     | `c -> ACC`                     | Bits 23-20 of `ACC` are set to 0 |
-| `1`    | `LDV a` (load value)                        | `<a> -> ACC`                   |                                  |
-| `2`    | `STV a` (store value)                       | `ACC -> <a>`                   |                                  |
-| `3`    | `ADD a`                                     | `ACC + <a> -> ACC`             |                                  |
-| `4`    | `AND a`                                     | `ACC and <a> -> ACC`           | Bitwise operation                |
-| `5`    | `OR a`                                      | `ACC or <a> -> ACC`            | Bitwise operation                |
-| `6`    | `XOR a`                                     | `ACC xor <a> -> ACC`           | Bitwise operation                |
-| `7`    | `EQL a` (equal)                             | `(ACC == <a> ? -1 : 0) -> ACC` |                                  |
-| `8`    | `JMP a` (jump)                              | `a -> IAR`                     |                                  |
-| `9`    | `JMN a` (jump if negative)                  | `if (ACC < 0) {a -> IAR}`      |                                  |
-| `A`    | `LDIV a` (load indirect value)              | `<<a>> -> ACC`                 |                                  |
-| `B`    | `STIV a` (store indirect value)             | `ACC -> <<a>>`                 |                                  |
-| `C`    | `CALL a`                                    | `IAR -> RA; JMP a`             |                                  |
-| `D`    | `LDVR d` (load value with relative offset)  | `<SP + d> -> ACC`              |                                  |
-| `E`    | `STVR d` (store value with relative offset) | `ACC -> <SP + d>`              |                                  |
-| `F0`   | `HALT`                                      | Halt execution                 |                                  |
-| `F1`   | `NOT`                                       | `not ACC -> ACC`               | Bitwise operation                |
-| `F2`   | `RAR` (rotate ACC right)                    | `ACC >> 1 -> ACC`              | See below                        |
-| `F3`   | `RET` (return)                              | `RA -> IAR`                    |                                  |
-| `F4`   | `LDSP` (load from SP)                       | `SP -> ACC`                    |                                  |
-| `F5`   | `STSP` (store to SP)                        | `ACC -> SP`                    |                                  |
-| `F6`   | `LDFP` (load from FP)                       | `FP -> ACC`                    |                                  |
-| `F7`   | `STFP` (store to FP)                        | `ACC -> FP`                    |                                  |
-| `F8`   | `LDRA` (load from RA)                       | `RA -> ACC`                    |                                  |
-| `F9`   | `STRA` (store to RA)                        | `ACC -> RA`                    |                                  |
-| `FA`   | `ADC c` (add constant)                      | `ACC + c -> ACC`               | See below                        |
+| Opcode | Name                                        | Function                       |
+|--------|---------------------------------------------|--------------------------------|
+| `0`    | `LDC c` (load constant)                     | `c -> ACC`                     |
+| `1`    | `LDV a` (load value)                        | `<a> -> ACC`                   |
+| `2`    | `STV a` (store value)                       | `ACC -> <a>`                   |
+| `3`    | `ADD a`                                     | `ACC + <a> -> ACC`             |
+| `4`    | `AND a`                                     | `ACC and <a> -> ACC`           |
+| `5`    | `OR a`                                      | `ACC or <a> -> ACC`            |
+| `6`    | `XOR a`                                     | `ACC xor <a> -> ACC`           |
+| `7`    | `EQL a` (equal)                             | `(ACC == <a> ? -1 : 0) -> ACC` |
+| `8`    | `JMP a` (jump)                              | `a -> IAR`                     |
+| `9`    | `JMN a` (jump if negative)                  | `if (ACC < 0) {a -> IAR}`      |
+| `A`    | `LDIV a` (load indirect value)              | `<<a>> -> ACC`                 |
+| `B`    | `STIV a` (store indirect value)             | `ACC -> <<a>>`                 |
+| `C`    | `CALL a`                                    | `IAR -> RA; JMP a`             |
+| `D`    | `LDVR d` (load value with relative offset)  | `<SP + d> -> ACC`              |
+| `E`    | `STVR d` (store value with relative offset) | `ACC -> <SP + d>`              |
+| `F0`   | `HALT`                                      | Halt execution                 |
+| `F1`   | `NOT`                                       | `not ACC -> ACC`               |
+| `F2`   | `RAR` (rotate ACC right)                    | `ACC >> 1 -> ACC`              |
+| `F3`   | `RET` (return)                              | `RA -> IAR`                    |
+| `F4`   | `LDRA` (load from RA)                       | `RA -> ACC`                    |
+| `F5`   | `STRA` (store to RA)                        | `ACC -> RA`                    |
+| `F6`   | `LDSP` (load from SP)                       | `SP -> ACC`                    |
+| `F7`   | `STSP` (store to SP)                        | `ACC -> SP`                    |
+| `F8`   | `LDFP` (load from FP)                       | `FP -> ACC`                    |
+| `F9`   | `STFP` (store to FP)                        | `ACC -> FP`                    |
+| `FA`   | `ADC c` (add constant)                      | `ACC + c -> ACC`               |
 
-- `RAR` shifts all bits in the `ACC` right by one. The rightmost bit wraps around to the leftmost position.
-- `ADC c` interprets bits 15-0 as a signed integer, whose value is then added to the `ACC`'s current value.
+* `LDC c` sets bits 23-20 of `ACC` to 0.
+* `ADD a`, `AND a`, `OR a`, `XOR a` and `NOT` are bitwise operations
+* `RAR` shifts all bits in the `ACC` right by one. The rightmost bit wraps around to the leftmost position.
+* `ADC c` interprets bits 15-0 as a signed integer, whose value is then added to the `ACC`'s current value.
 
 ## File format
 
@@ -118,7 +120,7 @@ The registers and memory are stored as follows:
 
 |          Word | Content     |
 |--------------:|-------------|
-|             0 | `IR`        |
+|             0 | `IAR`       |
 |             1 | `ACC`       |
 |             2 | `RA`        |
 |             3 | `SP`        |
