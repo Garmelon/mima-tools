@@ -84,7 +84,7 @@ instance ToText Instruction where
     | otherwise      = T.justifyLeft 4 ' ' (toText oc) <> " " <> smallValueToDec sv
 
 wordToInstruction :: MimaWord -> Either T.Text Instruction
-wordToInstruction mw = if getLargeOpcode mw == 0xF
+wordToInstruction mw = if getSmallOpcode mw == 0xF
                        then parseLargeInstruction mw
                        else parseSmallInstruction mw
 
@@ -99,7 +99,7 @@ parseSmallOpcode :: Word32 -> Either T.Text SmallOpcode
 parseSmallOpcode w = case smallOpcodeMap Map.!? w of
   Just oc -> pure oc
   Nothing -> Left $ "Unknown small opcode " <> T.pack (show w)
-                     <> " (" <> toHex 2 w <> ")"
+                     <> " (" <> toHex 1 w <> ")"
 
 parseLargeInstruction :: MimaWord -> Either T.Text Instruction
 parseLargeInstruction mw = do
@@ -112,4 +112,4 @@ parseLargeOpcode :: Word32 -> Either T.Text LargeOpcode
 parseLargeOpcode w = case largeOpcodeMap Map.!? w of
   Just oc -> pure oc
   Nothing -> Left $ "Unknown large opcode " <> T.pack (show w)
-                     <> " (" <> toHex 2 w <> ")"
+                     <> " (" <> toHex 1 w <> ")"

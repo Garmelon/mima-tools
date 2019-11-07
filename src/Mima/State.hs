@@ -7,6 +7,9 @@ module Mima.State
     MimaMemory
   , readAt
   , writeAt
+  -- ** Querying
+  , addressRange
+  , sparseAddressRange
   -- ** Converting
   , wordsToMemory
   , memoryToWords
@@ -35,6 +38,9 @@ addressRange (MimaMemory m) =
   case fst <$> Map.lookupMax m of
     Nothing      -> []
     Just maxAddr -> [minBound..maxAddr]
+
+sparseAddressRange :: MimaMemory -> [MimaAddress]
+sparseAddressRange (MimaMemory m) = Map.keys m
 
 wordsToMemory :: [MimaWord] -> MimaMemory
 wordsToMemory = MimaMemory

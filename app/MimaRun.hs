@@ -1,11 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module MimaRun where
 
 import           Control.Monad
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Options.Applicative
 
+import           Mima.Instruction
 import           Mima.Load
 import           Mima.State
 import           Mima.Util
@@ -68,6 +71,54 @@ runMima settings s =
         Just e  -> T.putStrLn $ toText e
       pure s'
 
+dumpState :: Bool -> MimaState -> T.Text
+dumpState sparse ms
+  =  registerLegend
+  <> dumpRegisters ms
+  <> memoryLegend
+  <> dumpMemory sparse (msMemory ms)
+  <> footerLegend
+
+showWord :: MimaWord -> T.Text
+showWord w =
+  case wordToInstruction w of
+    Left _  -> wordToHexDec w
+    Right i -> wordToHexDec w <> ": " <> toText i
+
+dumpRegisters :: MimaState -> T.Text
+dumpRegisters MimaState{..}
+  =  "IAR: " <> showAddressRegister msIAR <> "   ->   " <> showWord (readAt msIAR msMemory) <> "\n"
+  <> "ACC: " <> showWordRegister    msACC <> "\n"
+  <> " RA: " <> showAddressRegister msRA  <> "   ->   " <> showWord (readAt msRA  msMemory) <> "\n"
+  <> " SP: " <> showAddressRegister msRA  <> "   ->   " <> showWord (readAt msRA  msMemory) <> "\n"
+  <> " FP: " <> showAddressRegister msRA  <> "   ->   " <> showWord (readAt msRA  msMemory) <> "\n"
+  where
+    showWordRegister w = wordToHex w <> " (" <> wordToDec w <> ")"
+    showAddressRegister lv =
+      " " <> largeValueToHex lv <> " ( " <> largeValueToDec lv <> ")"
+
+registerLegend :: T.Text
+registerLegend = "--------- Register -------------- Target word ---------------\n"
+--               "IAR:  00000 (       0)   ->   800008 ( 8388616): JMP        8"
+
+showMemoryLine :: MimaAddress -> MimaWord -> T.Text
+showMemoryLine addr word = largeValueToHexDec addr <> "   ->   " <> showWord word <> "\n"
+
+dumpMemory :: Bool -> MimaMemory -> T.Text
+dumpMemory sparse mem =
+  let addresses = if sparse then sparseAddressRange mem else addressRange mem
+      memLines = map (\addr -> showMemoryLine addr $ readAt addr mem) addresses
+  in  T.concat memLines
+
+memoryLegend :: T.Text
+memoryLegend = "--- Address ---------------- Word ---------------------------\n"
+--             "00000 (      0)   ->   800008 ( 8388616): JMP        8"
+--             "IAR:  00000 (       0)   ->   800008 ( 8388616): JMP        8"
+
+footerLegend :: T.Text
+footerLegend = "------------------------------------------------------\n"
+--             "00000 (      0)   ->   800008 ( 8388616): JMP        8"
+
 -- TODO exception handling
 main :: IO ()
 main = do
@@ -80,10 +131,9 @@ main = do
   s' <- if norun settings then pure s else runMima settings s
 
   unless (quiet settings) $ do
-    putStrLn "\nDump of memory:"
-    T.putStrLn $ "IP: " <> addrToHexDec (msIp s') <> "     "
-                 <> "Acc: " <> wordToHexDec (msAcc s')
-    T.putStrLn $ memoryToText (sparse settings) (msMemory s')
+    putStrLn ""
+    putStrLn "Dump of MiMa state:"
+    T.putStr $ dumpState (sparse settings) s'
     putStrLn ""
 
   forM_ (memoryDump settings) $ \path -> do
