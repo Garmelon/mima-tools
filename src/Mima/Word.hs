@@ -16,29 +16,29 @@ module Mima.Word
   , getSmallOpcode
   , getLargeOpcode
   , getAddress
-  , getLongValue
-  , getShortValue
+  , getLargeValue
+  , getSmallValue
   -- ** Operations
   , addWords
   -- * 20-bit value
-  , LongValue
+  , LargeValue
   , MimaAddress
   -- ** Formatting
-  , longValueToHex
-  , longValueToDec
-  , longValueToHexDec
+  , largeValueToHex
+  , largeValueToDec
+  , largeValueToHexDec
   -- ** Converting
-  , bytesToLongValue
-  , longValueToBytes
-  , longValueToWord
+  , bytesToLargeValue
+  , largeValueToBytes
+  , largeValueToWord
   -- * 16-bit value
-  , ShortValue
+  , SmallValue
   -- ** Formatting
-  , shortValueToHex
-  , shortValueToDec
-  , shortValueToHexDec
+  , smallValueToHex
+  , smallValueToDec
+  , smallValueToHexDec
   -- ** Converting
-  , signedShortValueToWord
+  , signedSmallValueToWord
   ) where
 
 import           Data.Bits
@@ -174,68 +174,68 @@ getLargeOpcode :: MimaWord -> Word32
 getLargeOpcode mw = shiftR (toWord32 mw) 16 .&. 0xF
 
 getAddress :: MimaWord -> MimaAddress
-getAddress = getLongValue
+getAddress = getLargeValue
 
-getLongValue :: MimaWord -> LongValue
-getLongValue = fromWord32 . toWord32
+getLargeValue :: MimaWord -> LargeValue
+getLargeValue = fromWord32 . toWord32
 
-getShortValue :: MimaWord -> ShortValue
-getShortValue = fromWord32 . toWord32
+getSmallValue :: MimaWord -> SmallValue
+getSmallValue = fromWord32 . toWord32
 
 addWords :: MimaWord -> MimaWord -> MimaWord
 addWords w1 w2 = fromWord32 $ toWord32 w1 + toWord32 w2
 
-type MimaAddress = LongValue
-type LongValue = WB LongValue_
-newtype LongValue_ = LongValue_ Word32
+type MimaAddress = LargeValue
+type LargeValue = WB LargeValue_
+newtype LargeValue_ = LargeValue_ Word32
 
-instance Word32Based LongValue_ where
+instance Word32Based LargeValue_ where
   usedBits _ = 20
-  fromWord32 w = LongValue_ $ w .&. 0xFFFFF
-  toWord32 (LongValue_ w) = w
+  fromWord32 w = LargeValue_ $ w .&. 0xFFFFF
+  toWord32 (LargeValue_ w) = w
 
-instance Show LongValue_ where
-  show lv = T.unpack $ "LongValue_ 0x" <> toHex 5 (toWord32 lv)
+instance Show LargeValue_ where
+  show lv = T.unpack $ "LargeValue_ 0x" <> toHex 5 (toWord32 lv)
 
-longValueToHex :: MimaWord -> T.Text
-longValueToHex = toHex 5 . toWord32
+largeValueToHex :: MimaWord -> T.Text
+largeValueToHex = toHex 5 . toWord32
 
-longValueToDec :: MimaWord -> T.Text
-longValueToDec = toDec 7 . toWord32
+largeValueToDec :: MimaWord -> T.Text
+largeValueToDec = toDec 7 . toWord32
 
-longValueToHexDec :: MimaWord -> T.Text
-longValueToHexDec mw = longValueToHex mw <> " (" <> longValueToDec mw <> ")"
+largeValueToHexDec :: MimaWord -> T.Text
+largeValueToHexDec mw = largeValueToHex mw <> " (" <> largeValueToDec mw <> ")"
 
-bytesToLongValue :: Word8 -> Word8 -> Word8 -> LongValue
-bytesToLongValue w1 w2 w3 = getAddress $ bytesToWord w1 w2 w3
+bytesToLargeValue :: Word8 -> Word8 -> Word8 -> LargeValue
+bytesToLargeValue w1 w2 w3 = getAddress $ bytesToWord w1 w2 w3
 
-longValueToBytes :: LongValue -> (Word8, Word8, Word8)
-longValueToBytes = wordToBytes . longValueToWord
+largeValueToBytes :: LargeValue -> (Word8, Word8, Word8)
+largeValueToBytes = wordToBytes . largeValueToWord
 
-longValueToWord :: LongValue -> MimaWord
-longValueToWord = fromWord32 . toWord32
+largeValueToWord :: LargeValue -> MimaWord
+largeValueToWord = fromWord32 . toWord32
 
-type ShortValue = WB ShortValue_
-newtype ShortValue_ = ShortValue_ Word32
+type SmallValue = WB SmallValue_
+newtype SmallValue_ = SmallValue_ Word32
 
-instance Word32Based ShortValue_ where
+instance Word32Based SmallValue_ where
   usedBits _ = 16
-  fromWord32 w = ShortValue_ $ w .&. 0xFFFF
-  toWord32 (ShortValue_ w) = w
+  fromWord32 w = SmallValue_ $ w .&. 0xFFFF
+  toWord32 (SmallValue_ w) = w
 
-instance Show ShortValue_ where
-  show lv = T.unpack $ "ShortValue_ 0x" <> toHex 4 (toWord32 lv)
+instance Show SmallValue_ where
+  show lv = T.unpack $ "SmallValue_ 0x" <> toHex 4 (toWord32 lv)
 
-shortValueToHex :: MimaWord -> T.Text
-shortValueToHex = toHex 4 . toWord32
+smallValueToHex :: MimaWord -> T.Text
+smallValueToHex = toHex 4 . toWord32
 
-shortValueToDec :: MimaWord -> T.Text
-shortValueToDec = toDec 5 . toWord32
+smallValueToDec :: MimaWord -> T.Text
+smallValueToDec = toDec 5 . toWord32
 
-shortValueToHexDec :: MimaWord -> T.Text
-shortValueToHexDec mw = shortValueToHex mw <> " (" <> shortValueToDec mw <> ")"
+smallValueToHexDec :: MimaWord -> T.Text
+smallValueToHexDec mw = smallValueToHex mw <> " (" <> smallValueToDec mw <> ")"
 
-signedShortValueToWord :: ShortValue -> MimaWord
-signedShortValueToWord sv
+signedSmallValueToWord :: SmallValue -> MimaWord
+signedSmallValueToWord sv
   | topBit sv = fromWord32 $ 0xFFFF0000 .|. toWord32 sv
   | otherwise = fromWord32 $ toWord32 sv
