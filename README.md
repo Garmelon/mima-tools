@@ -47,6 +47,9 @@ Small opcodes can range from `0` to `E` and have an address or 20-bit
 value as argument. Large opcodes can range from `F0` to `FF` and have,
 if at all, a 16-bit value as argument.
 
+For large opcodes without an argument, the 16 value bits are
+ignored. They don't have to be set to 0.
+
 ### Registers
 
 | Name  | Size (bits) | Function                     |
@@ -113,8 +116,8 @@ with zeroes, like so:
 
 The registers and memory are stored as follows:
 
-| Word          | Content     |
-|---------------+-------------|
+|          Word | Content     |
+|--------------:|-------------|
 |             0 | `IR`        |
 |             1 | `ACC`       |
 |             2 | `RA`        |
