@@ -1,12 +1,15 @@
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module MimaRun where
 
 import           Control.Monad
+import           Data.Bits
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Options.Applicative
+import           System.Console.ANSI
 
 import           Mima.Instruction
 import           Mima.Load
@@ -22,6 +25,8 @@ data Settings = Settings
   , sparse     :: Bool
   , norun      :: Bool
   } deriving (Show)
+
+{- Command-line parameters -}
 
 settingsParser :: Parser Settings
 settingsParser = Settings
@@ -54,6 +59,110 @@ settingsParser = Settings
 opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
 
+{- Fancy output -}
+
+printAddress :: Int -> MimaAddress -> IO ()
+printAddress n addr = do
+  T.putStr $ toHexBytes addr
+  putStr " ("
+  T.putStr $ T.justifyRight n ' ' $ toDec addr
+  putStr ")"
+
+printWord :: Int -> MimaWord -> IO ()
+printWord n word = do
+  T.putStr $ toHexBytes word
+  putStr " ("
+  T.putStr $ T.justifyRight n ' ' $ toDec word
+  putStr ")"
+
+printInstruction :: Instruction -> IO ()
+printInstruction (SmallInstruction so lv) = do
+  setSGR [SetConsoleIntensity BoldIntensity]
+  if | so `elem` [JMP, JMN, CALL]                        -> setSGR [SetColor Foreground Vivid Yellow]
+     | so `elem` [LDC, LDV, STV, LDIV, STIV, LDVR, STVR] -> setSGR [SetColor Foreground Vivid Blue]
+     | so `elem` [ADD, AND, OR, XOR, EQL]                -> setSGR [SetColor Foreground Vivid Cyan]
+     | otherwise                                         -> pure ()
+  T.putStr $ toText so
+  putStr " "
+  setSGR [SetColor Foreground Vivid Black]
+  T.putStr $ toDec lv
+  setSGR []
+printInstruction (LargeInstruction lo sv) = do
+  setSGR [SetConsoleIntensity BoldIntensity]
+  if | lo == HALT                                     -> setSGR [SetColor Foreground Vivid Red]
+     | lo == RET                                      -> setSGR [SetColor Foreground Vivid Yellow]
+     | lo `elem` [NOT, RAR, ADC]                      -> setSGR [SetColor Foreground Vivid Cyan]
+     | lo `elem` [LDRA, STRA, LDSP, STSP, LDFP, STFP] -> setSGR [SetColor Foreground Vivid Magenta]
+     | otherwise                                      -> pure ()
+  T.putStr $ toText lo
+  when (lo == ADC || sv /= zeroBits) $ do
+    putStr " "
+    setSGR [SetColor Foreground Vivid Black]
+    T.putStr $ toDec sv
+  setSGR []
+
+printWordWithInstruction :: Int -> MimaWord -> IO ()
+printWordWithInstruction n word = do
+  printWord n word
+  case wordToInstruction word of
+    Left _  -> pure ()
+    Right i -> do
+      putStr ": "
+      printInstruction i
+
+printAddressRegister :: MimaState -> MimaAddress -> IO ()
+printAddressRegister ms addr = do
+  printAddress 8 addr
+  putStr "   ->   "
+  printWordWithInstruction 8 $ readAt addr $ msMemory ms
+
+printRegistersLn :: MimaState -> IO ()
+printRegistersLn ms = do
+  putStr "IAR:  "
+  printAddressRegister ms $ msIAR ms
+  putStrLn ""
+
+  putStr "ACC: "
+  printWord 8 $ msACC ms
+  putStrLn ""
+
+  putStr " RA:  "
+  printAddressRegister ms $ msRA ms
+  putStrLn ""
+
+  putStr " SP:  "
+  printAddressRegister ms $ msSP ms
+  putStrLn ""
+
+  putStr " FP:  "
+  printAddressRegister ms $ msFP ms
+  putStrLn ""
+
+printMemoryLocationLn :: MimaAddress -> MimaWord -> IO ()
+printMemoryLocationLn addr word = do
+  printAddress 7 addr
+  putStr "   ->   "
+  printWord 8 word
+  case wordToInstruction word of
+    Left _  -> pure ()
+    Right i -> do
+      putStr ": "
+      printInstruction i
+  putStrLn ""
+
+printMemoryLn :: Bool -> MimaMemory -> IO ()
+printMemoryLn sparse mem = do
+  let addresses = if sparse then sparseAddressRange mem else addressRange mem
+  forM_ addresses $ \addr -> do
+    printMemoryLocationLn addr (readAt addr mem)
+
+printStateLn :: Bool -> MimaState -> IO ()
+printStateLn sparse ms = do
+  printRegistersLn ms
+  printMemoryLn sparse $ msMemory ms
+
+{- Main logic -}
+
 runMima :: Settings -> MimaState -> IO MimaState
 runMima settings s =
   case steps settings of
@@ -71,54 +180,6 @@ runMima settings s =
         Just e  -> T.putStrLn $ toText e
       pure s'
 
-dumpState :: Bool -> MimaState -> T.Text
-dumpState sparse ms
-  =  registerLegend
-  <> dumpRegisters ms
-  <> memoryLegend
-  <> dumpMemory sparse (msMemory ms)
-  <> footerLegend
-
-showWord :: MimaWord -> T.Text
-showWord w =
-  case wordToInstruction w of
-    Left _  -> wordToHexDec w
-    Right i -> wordToHexDec w <> ": " <> toText i
-
-dumpRegisters :: MimaState -> T.Text
-dumpRegisters MimaState{..}
-  =  "IAR: " <> showAddressRegister msIAR <> "   ->   " <> showWord (readAt msIAR msMemory) <> "\n"
-  <> "ACC: " <> showWordRegister    msACC <> "\n"
-  <> " RA: " <> showAddressRegister msRA  <> "   ->   " <> showWord (readAt msRA  msMemory) <> "\n"
-  <> " SP: " <> showAddressRegister msRA  <> "   ->   " <> showWord (readAt msRA  msMemory) <> "\n"
-  <> " FP: " <> showAddressRegister msRA  <> "   ->   " <> showWord (readAt msRA  msMemory) <> "\n"
-  where
-    showWordRegister w = wordToHex w <> " (" <> wordToDec w <> ")"
-    showAddressRegister lv =
-      " " <> largeValueToHex lv <> " ( " <> largeValueToDec lv <> ")"
-
-registerLegend :: T.Text
-registerLegend = "--------- Register -------------- Target word ---------------\n"
---               "IAR:  00000 (       0)   ->   800008 ( 8388616): JMP        8"
-
-showMemoryLine :: MimaAddress -> MimaWord -> T.Text
-showMemoryLine addr word = largeValueToHexDec addr <> "   ->   " <> showWord word <> "\n"
-
-dumpMemory :: Bool -> MimaMemory -> T.Text
-dumpMemory sparse mem =
-  let addresses = if sparse then sparseAddressRange mem else addressRange mem
-      memLines = map (\addr -> showMemoryLine addr $ readAt addr mem) addresses
-  in  T.concat memLines
-
-memoryLegend :: T.Text
-memoryLegend = "--- Address ---------------- Word ---------------------------\n"
---             "00000 (      0)   ->   800008 ( 8388616): JMP        8"
---             "IAR:  00000 (       0)   ->   800008 ( 8388616): JMP        8"
-
-footerLegend :: T.Text
-footerLegend = "------------------------------------------------------\n"
---             "00000 (      0)   ->   800008 ( 8388616): JMP        8"
-
 -- TODO exception handling
 main :: IO ()
 main = do
@@ -133,7 +194,7 @@ main = do
   unless (quiet settings) $ do
     putStrLn ""
     putStrLn "Dump of MiMa state:"
-    T.putStr $ dumpState (sparse settings) s'
+    printStateLn (sparse settings) s'
     putStrLn ""
 
   forM_ (memoryDump settings) $ \path -> do
