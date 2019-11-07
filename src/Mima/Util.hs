@@ -1,7 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Mima.Util
   ( ToText(..)
-  , toDec
-  , toHex
+  , HexLike(..)
+  , groupByTwoChars
+  , integralToDec
+  , integralToHex
   ) where
 
 import qualified Data.Text as T
@@ -20,8 +24,22 @@ import qualified Numeric as N
 class ToText a where
   toText :: a -> T.Text
 
-toDec :: (Integral a, Show a) => Int -> a -> T.Text
-toDec digits a = T.justifyRight digits ' ' $ T.pack $ show a
+class HexLike a where
+  toDec :: a -> T.Text
+  toHex :: a -> T.Text
 
-toHex :: (Integral a, Show a) => Int -> a -> T.Text
-toHex digits a = T.justifyRight digits '0' $ T.pack $ N.showHex a ""
+  toHexBytes :: a -> T.Text
+  toHexBytes = T.intercalate " " . groupByTwoChars . toHex
+
+groupByTwoChars :: T.Text -> [T.Text]
+groupByTwoChars = reverse . helper . T.unpack . T.reverse
+  where
+    helper (c1:c2:cs) = T.pack [c2, c1] : helper cs
+    helper [c] = [T.singleton c]
+    helper []  = []
+
+integralToDec :: (Integral a, Show a) => Int -> a -> T.Text
+integralToDec digits a = T.justifyRight digits ' ' $ T.pack $ show a
+
+integralToHex :: (Integral a, Show a) => Int -> a -> T.Text
+integralToHex digits a = T.justifyRight digits '0' $ T.pack $ N.showHex a ""

@@ -4,10 +4,6 @@ module Mima.Word
   ( topBit
   -- * 24-bit value
   , MimaWord
-  -- ** Formatting
-  , wordToHex
-  , wordToDec
-  , wordToHexDec
   -- ** Converting
   , bytesToWord
   , wordToBytes
@@ -23,10 +19,6 @@ module Mima.Word
   -- * 20-bit value
   , LargeValue
   , MimaAddress
-  -- ** Formatting
-  , largeValueToHex
-  , largeValueToDec
-  , largeValueToHexDec
   -- ** Converting
   , bytesToLargeValue
   , largeValueToBytes
@@ -35,10 +27,6 @@ module Mima.Word
   , addLargeValues
   -- * 16-bit value
   , SmallValue
-  -- ** Formatting
-  , smallValueToHex
-  , smallValueToDec
-  , smallValueToHexDec
   -- ** Converting
   , signedSmallValueToWord
   ) where
@@ -69,6 +57,11 @@ newtype WB t = WB { unWB :: t}
 
 instance (Show t) => Show (WB t) where
   show = show . unWB
+
+instance (HexLike t) => HexLike (WB t) where
+  toDec = toDec . unWB
+  toHex = toHex . unWB
+  toHexBytes = toHexBytes . unWB
 
 -- Kinda obvious, isn't it? :P
 instance (Word32Based t) => Word32Based (WB t) where
@@ -146,17 +139,12 @@ instance Word32Based MimaWord_ where
   fromWord32 w = MimaWord_ $ w .&. 0xFFFFFF
   toWord32 (MimaWord_ w) = w
 
+instance HexLike MimaWord_ where
+  toDec = T.pack . show . toWord32
+  toHex = integralToHex 6 . toWord32
+
 instance Show MimaWord_ where
-  show mw = T.unpack $ "MimaWord_ 0x" <> toHex 6 (toWord32 mw)
-
-wordToHex :: MimaWord -> T.Text
-wordToHex = toHex 6 . toWord32
-
-wordToDec :: MimaWord -> T.Text
-wordToDec = toDec 8 . toWord32
-
-wordToHexDec :: MimaWord -> T.Text
-wordToHexDec mw = wordToHex mw <> " (" <> wordToDec mw <> ")"
+  show mw = T.unpack $ "MimaWord_ 0x" <> toHex mw
 
 bytesToWord :: Word8 -> Word8 -> Word8 -> MimaWord
 bytesToWord w1 w2 w3 =
@@ -204,17 +192,12 @@ instance Word32Based LargeValue_ where
   fromWord32 w = LargeValue_ $ w .&. 0xFFFFF
   toWord32 (LargeValue_ w) = w
 
+instance HexLike LargeValue_ where
+  toDec = T.pack . show . toWord32
+  toHex = integralToHex 5 . toWord32
+
 instance Show LargeValue_ where
-  show lv = T.unpack $ "LargeValue_ 0x" <> toHex 5 (toWord32 lv)
-
-largeValueToHex :: LargeValue -> T.Text
-largeValueToHex = toHex 5 . toWord32
-
-largeValueToDec :: LargeValue -> T.Text
-largeValueToDec = toDec 7 . toWord32
-
-largeValueToHexDec :: LargeValue -> T.Text
-largeValueToHexDec mw = largeValueToHex mw <> " (" <> largeValueToDec mw <> ")"
+  show lv = T.unpack $ "LargeValue_ 0x" <> toHex lv
 
 bytesToLargeValue :: Word8 -> Word8 -> Word8 -> LargeValue
 bytesToLargeValue w1 w2 w3 = getAddress $ bytesToWord w1 w2 w3
@@ -236,17 +219,12 @@ instance Word32Based SmallValue_ where
   fromWord32 w = SmallValue_ $ w .&. 0xFFFF
   toWord32 (SmallValue_ w) = w
 
+instance HexLike SmallValue_ where
+  toDec = T.pack . show . toWord32
+  toHex = integralToHex 5 . toWord32
+
 instance Show SmallValue_ where
-  show lv = T.unpack $ "SmallValue_ 0x" <> toHex 4 (toWord32 lv)
-
-smallValueToHex :: SmallValue -> T.Text
-smallValueToHex = toHex 4 . toWord32
-
-smallValueToDec :: SmallValue -> T.Text
-smallValueToDec = toDec 5 . toWord32
-
-smallValueToHexDec :: SmallValue -> T.Text
-smallValueToHexDec mw = smallValueToHex mw <> " (" <> smallValueToDec mw <> ")"
+  show sv = T.unpack $ "SmallValue_ 0x" <> toHex sv
 
 signedSmallValueToWord :: SmallValue -> MimaWord
 signedSmallValueToWord sv
