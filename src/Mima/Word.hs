@@ -31,6 +31,8 @@ module Mima.Word
   , bytesToLargeValue
   , largeValueToBytes
   , largeValueToWord
+  -- ** Operations
+  , addLargeValues
   -- * 16-bit value
   , SmallValue
   -- ** Formatting
@@ -42,6 +44,7 @@ module Mima.Word
   ) where
 
 import           Data.Bits
+import           Data.Function
 import qualified Data.Text as T
 import           Data.Word
 
@@ -75,6 +78,13 @@ instance (Word32Based t) => Word32Based (WB t) where
 
 instance (Word32Based t) => Eq (WB t) where
   w1 == w2 = toWord32 (unWB w1) == toWord32 (unWB w2)
+
+instance (Word32Based t) => Ord (WB t) where
+  compare = compare `on` toWord32
+  (<)     = (<)  `on` toWord32
+  (<=)    = (<=) `on` toWord32
+  (>)     = (>)  `on` toWord32
+  (>=)    = (>=) `on` toWord32
 
 instance (Word32Based t) => Bits (WB t) where
   t1 .&.   t2 = fromWord32 $ toWord32 t1 .&.   toWord32 t2
@@ -214,6 +224,9 @@ largeValueToBytes = wordToBytes . largeValueToWord
 
 largeValueToWord :: LargeValue -> MimaWord
 largeValueToWord = fromWord32 . toWord32
+
+addLargeValues :: LargeValue -> LargeValue -> LargeValue
+addLargeValues lv1 lv2 = getLargeValue $ addWords (largeValueToWord lv1) (largeValueToWord lv2)
 
 type SmallValue = WB SmallValue_
 newtype SmallValue_ = SmallValue_ Word32

@@ -1,16 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Mima.State
-  ( MimaMemory
-  , wordsToMemory
-  , memoryToWords
-  , memoryToText
+  (
+  -- * Memory
+    MimaMemory
   , readAt
   , writeAt
+  -- ** Converting
+  , wordsToMemory
+  , memoryToWords
+  -- * State
   , MimaState(..)
   , initialState
   , AbortReason(..)
-  , ExecException(..)
   , step
   , run
   , runN
@@ -18,7 +21,6 @@ module Mima.State
 
 import           Data.Bits
 import qualified Data.Map.Strict as Map
-import           Data.Maybe
 import qualified Data.Text as T
 
 import           Mima.Instruction
@@ -30,8 +32,9 @@ newtype MimaMemory = MimaMemory (Map.Map MimaAddress MimaWord)
 
 addressRange :: MimaMemory -> [MimaAddress]
 addressRange (MimaMemory m) =
-  let maxAddr = fromMaybe minBound $ fst <$> Map.lookupMax m
-  in  [minBound..maxAddr]
+  case fst <$> Map.lookupMax m of
+    Nothing      -> []
+    Just maxAddr -> [minBound..maxAddr]
 
 wordsToMemory :: [MimaWord] -> MimaMemory
 wordsToMemory = MimaMemory
@@ -42,6 +45,7 @@ wordsToMemory = MimaMemory
 memoryToWords :: MimaMemory -> [MimaWord]
 memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
 
+{-
 addrWordLegend :: T.Text
 addrWordLegend = "SO: Small Opcode (bits 23-20)    LO: Large Opcode (bits 19-16)\n"
                  <> "Addr  (decimal)    -    Word   ( decimal|SO,LO,   Addr)    -    Instruction\n"
@@ -68,6 +72,7 @@ memoryToText sparse mem@(MimaMemory m)
   where
     addresses False = addressRange mem
     addresses True  = Map.keys m
+-}
 
 readAt :: MimaAddress -> MimaMemory -> MimaWord
 readAt addr (MimaMemory m) = Map.findWithDefault zeroBits addr m
@@ -78,84 +83,91 @@ writeAt addr word (MimaMemory m)
   | otherwise        = MimaMemory $ Map.insert addr word m
 
 data MimaState = MimaState
-  { msIp     :: !MimaAddress
-  , msAcc    :: !MimaWord
+  { msIAR    :: !MimaAddress
+  , msACC    :: !MimaWord
+  , msRA     :: !MimaAddress
+  , msSP     :: !MimaAddress
+  , msFP     :: !MimaAddress
   , msMemory :: !MimaMemory
   } deriving (Show)
 
+-- | A possible initial MiMa state, where every register is
+-- zeroed. Thus, execution starts at address 0x00000.
 initialState :: MimaMemory -> MimaState
 initialState mem = MimaState
-  { msIp     = minBound
-  , msAcc    = zeroBits
+  { msIAR    = zeroBits
+  , msACC    = zeroBits
+  , msRA     = zeroBits
+  , msSP     = zeroBits
+  , msFP     = zeroBits
   , msMemory = mem
   }
 
-data AbortReason = Halted | InvalidInstruction T.Text | InvalidNextIpAddress
+data AbortReason = Halted | InvalidInstruction T.Text | InvalidNextIarAddress
   deriving (Show)
 
 instance ToText AbortReason where
   toText Halted = "Halted"
   toText (InvalidInstruction t) = "Invalid instruction: " <> t
-  toText InvalidNextIpAddress = "Invalid next IP address"
+  toText InvalidNextIarAddress = "Can't increment IAR: Invalid next address"
 
-data ExecException = ExecException MimaAddress MimaWord AbortReason
-  deriving (Show)
-
-instance ToText ExecException where
-  toText (ExecException addr word reason) =
-    "Exception at " <> addrToHexDec addr <> " with word " <> wordToHexDec word <> ": " <> toText reason
-
-incrementIp :: MimaState -> Either ExecException MimaState
-incrementIp ms =
-  let addr = msIp ms
+incrementIAR :: MimaState -> Either AbortReason MimaState
+incrementIAR ms =
+  let addr = msIAR ms
   in  if addr >= maxBound
-      then Left $ ExecException addr (readAt addr $ msMemory ms) InvalidNextIpAddress
-      else pure ms{msIp = succ addr}
+      then Left InvalidNextIarAddress
+      else Right ms{msIAR = succ addr}
 
-wordToInstruction' :: MimaAddress -> MimaWord -> Either ExecException Instruction
-wordToInstruction' addr word =
+wordToInstruction' :: MimaWord -> Either AbortReason Instruction
+wordToInstruction' word =
   case wordToInstruction word of
-    Right instruction -> pure instruction
-    Left errorMsg     -> Left $ ExecException addr word $ InvalidInstruction errorMsg
+    Right instruction -> Right instruction
+    Left errorMsg     -> Left $ InvalidInstruction errorMsg
 
-step :: MimaState -> Either ExecException MimaState
+step :: MimaState -> Either AbortReason MimaState
 step ms = do
-  let addr = msIp ms
-      word = readAt addr (msMemory ms)
-  instruction <- wordToInstruction' addr word
+  let word = readAt (msIAR ms) (msMemory ms)
+  ms'         <- incrementIAR ms
+  instruction <- wordToInstruction' word
   case instruction of
-    (SmallInstruction oc instrAddr) -> executeSmallOpcode oc instrAddr ms
-    (LargeInstruction oc)           -> executeLargeOpcode oc ms
+    (SmallInstruction so lv) -> pure $ doSmallOpcode so lv ms'
+    (LargeInstruction lo sv) -> doLargeOpcode lo sv ms'
 
-executeSmallOpcode :: SmallOpcode -> MimaAddress -> MimaState -> Either ExecException MimaState
-executeSmallOpcode LDC  addr ms = incrementIp ms{msAcc = addrToWord addr}
-executeSmallOpcode LDV  addr ms = incrementIp ms{msAcc = readAt addr (msMemory ms)}
-executeSmallOpcode STV  addr ms = incrementIp ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
-executeSmallOpcode ADD  addr ms = incrementIp ms{msAcc = addWords (msAcc ms) (readAt addr $ msMemory ms)}
-executeSmallOpcode AND  addr ms = incrementIp ms{msAcc = msAcc ms .&.   readAt addr (msMemory ms)}
-executeSmallOpcode OR   addr ms = incrementIp ms{msAcc = msAcc ms .|.   readAt addr (msMemory ms)}
-executeSmallOpcode XOR  addr ms = incrementIp ms{msAcc = msAcc ms `xor` readAt addr (msMemory ms)}
-executeSmallOpcode EQL  addr ms = incrementIp ms{msAcc = boolToWord $ msAcc ms == readAt addr (msMemory ms)}
-executeSmallOpcode JMP  addr ms = pure ms{msIp = addr}
-executeSmallOpcode JMN  addr ms = if topBit (msAcc ms) then pure ms{msIp = addr} else incrementIp ms
-executeSmallOpcode STIV addr ms =
-  let mem = msMemory ms
-      indirAddr = address $ readAt addr mem
-  in  incrementIp ms{msMemory = writeAt indirAddr (msAcc ms) mem}
-executeSmallOpcode LDIV addr ms =
-  let mem = msMemory ms
-      indirAddr = address $ readAt addr mem
-  in  incrementIp ms{msAcc = readAt indirAddr mem}
+doSmallOpcode :: SmallOpcode -> LargeValue -> MimaState -> MimaState
+doSmallOpcode LDC  lv   ms@MimaState{..} = ms{msACC = largeValueToWord lv}
+doSmallOpcode LDV  addr ms@MimaState{..} = ms{msACC = readAt addr msMemory}
+doSmallOpcode STV  addr ms@MimaState{..} = ms{msMemory = writeAt addr msACC msMemory}
+doSmallOpcode ADD  addr ms@MimaState{..} = ms{msACC = addWords msACC $ readAt addr msMemory}
+doSmallOpcode AND  addr ms@MimaState{..} = ms{msACC = msACC .&.   readAt addr msMemory}
+doSmallOpcode OR   addr ms@MimaState{..} = ms{msACC = msACC .|.   readAt addr msMemory}
+doSmallOpcode XOR  addr ms@MimaState{..} = ms{msACC = msACC `xor` readAt addr msMemory}
+doSmallOpcode EQL  addr ms@MimaState{..} = ms{msACC = boolToWord $ msACC == readAt addr msMemory}
+doSmallOpcode JMP  addr ms@MimaState{..} = ms{msIAR = addr}
+doSmallOpcode JMN  addr ms@MimaState{..} = if topBit msACC then ms{msIAR = addr} else ms
+doSmallOpcode LDIV addr ms@MimaState{..} =
+  let indirAddr = getAddress $ readAt addr msMemory
+  in  ms{msACC = readAt indirAddr msMemory}
+doSmallOpcode STIV addr ms@MimaState{..} =
+  let indirAddr = getAddress $ readAt addr msMemory
+  in  ms{msMemory = writeAt indirAddr msACC msMemory}
+doSmallOpcode CALL addr ms@MimaState{..} = ms{msRA = msIAR, msIAR = addr}
+doSmallOpcode LDVR addr ms@MimaState{..} = ms{msACC = readAt (addLargeValues msSP addr) msMemory}
+doSmallOpcode STVR addr ms@MimaState{..} = ms{msMemory = writeAt (addLargeValues msSP addr) msACC msMemory}
 
-executeLargeOpcode :: LargeOpcode -> MimaState -> Either ExecException MimaState
-executeLargeOpcode HALT ms =
-  let addr = msIp ms
-      word = readAt addr (msMemory ms)
-  in   Left $ ExecException addr word Halted
-executeLargeOpcode NOT  ms = incrementIp ms{msAcc = complement (msAcc ms)}
-executeLargeOpcode RAR  ms = incrementIp ms{msAcc = rotateR (msAcc ms) 1}
+doLargeOpcode :: LargeOpcode -> SmallValue -> MimaState -> Either AbortReason MimaState
+doLargeOpcode HALT _  _                = Left Halted
+doLargeOpcode NOT  _  ms@MimaState{..} = pure ms{msACC = complement msACC}
+doLargeOpcode RAR  _  ms@MimaState{..} = pure ms{msACC = rotateR msACC 1}
+doLargeOpcode RET  _  ms@MimaState{..} = pure ms{msIAR = msRA}
+doLargeOpcode LDRA _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msRA}
+doLargeOpcode STRA _  ms@MimaState{..} = pure ms{msRA  = getAddress msACC}
+doLargeOpcode LDSP _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msSP}
+doLargeOpcode STSP _  ms@MimaState{..} = pure ms{msSP  = getAddress msACC}
+doLargeOpcode LDFP _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msFP}
+doLargeOpcode STFP _  ms@MimaState{..} = pure ms{msFP  = getAddress msACC}
+doLargeOpcode ADC  sv ms@MimaState{..} = pure ms{msACC = addWords msACC $ signedSmallValueToWord sv}
 
-run :: MimaState -> (MimaState, ExecException, Integer)
+run :: MimaState -> (MimaState, AbortReason, Integer)
 run ms = helper 0 ms
   where
     helper completed s =
@@ -163,7 +175,7 @@ run ms = helper 0 ms
         Left e   -> (s, e, completed)
         Right s' -> helper (completed + 1) s'
 
-runN :: Integer -> MimaState -> (MimaState, Maybe ExecException, Integer)
+runN :: Integer -> MimaState -> (MimaState, Maybe AbortReason, Integer)
 runN n ms = helper 0 ms
   where
     helper completed s =
