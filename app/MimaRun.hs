@@ -78,7 +78,7 @@ printWord n word = do
 printInstruction :: Instruction -> IO ()
 printInstruction (SmallInstruction so lv) = do
   setSGR [SetConsoleIntensity BoldIntensity]
-  if | so `elem` [JMP, JMN, CALL]                        -> setSGR [SetColor Foreground Vivid Yellow]
+  if | so `elem` [JMP, JMN, CALL]                        -> setSGR [SetColor Foreground Dull Green]
      | so `elem` [LDC, LDV, STV, LDIV, STIV, LDVR, STVR] -> setSGR [SetColor Foreground Vivid Blue]
      | so `elem` [ADD, AND, OR, XOR, EQL]                -> setSGR [SetColor Foreground Vivid Cyan]
      | otherwise                                         -> pure ()
@@ -90,9 +90,9 @@ printInstruction (SmallInstruction so lv) = do
 printInstruction (LargeInstruction lo sv) = do
   setSGR [SetConsoleIntensity BoldIntensity]
   if | lo == HALT                                     -> setSGR [SetColor Foreground Vivid Red]
-     | lo == RET                                      -> setSGR [SetColor Foreground Vivid Yellow]
+     | lo == RET                                      -> setSGR [SetColor Foreground Dull Green]
      | lo `elem` [NOT, RAR, ADC]                      -> setSGR [SetColor Foreground Vivid Cyan]
-     | lo `elem` [LDRA, STRA, LDSP, STSP, LDFP, STFP] -> setSGR [SetColor Foreground Vivid Magenta]
+     | lo `elem` [LDRA, STRA, LDSP, STSP, LDFP, STFP] -> setSGR [SetColor Foreground Dull Yellow]
      | otherwise                                      -> pure ()
   T.putStr $ toText lo
   when (lo == ADC || sv /= zeroBits) $ do
