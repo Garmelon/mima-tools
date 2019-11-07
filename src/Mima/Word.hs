@@ -197,13 +197,13 @@ instance Word32Based LargeValue_ where
 instance Show LargeValue_ where
   show lv = T.unpack $ "LargeValue_ 0x" <> toHex 5 (toWord32 lv)
 
-largeValueToHex :: MimaWord -> T.Text
+largeValueToHex :: LargeValue -> T.Text
 largeValueToHex = toHex 5 . toWord32
 
-largeValueToDec :: MimaWord -> T.Text
+largeValueToDec :: LargeValue -> T.Text
 largeValueToDec = toDec 7 . toWord32
 
-largeValueToHexDec :: MimaWord -> T.Text
+largeValueToHexDec :: LargeValue -> T.Text
 largeValueToHexDec mw = largeValueToHex mw <> " (" <> largeValueToDec mw <> ")"
 
 bytesToLargeValue :: Word8 -> Word8 -> Word8 -> LargeValue
@@ -226,13 +226,13 @@ instance Word32Based SmallValue_ where
 instance Show SmallValue_ where
   show lv = T.unpack $ "SmallValue_ 0x" <> toHex 4 (toWord32 lv)
 
-smallValueToHex :: MimaWord -> T.Text
+smallValueToHex :: SmallValue -> T.Text
 smallValueToHex = toHex 4 . toWord32
 
-smallValueToDec :: MimaWord -> T.Text
+smallValueToDec :: SmallValue -> T.Text
 smallValueToDec = toDec 5 . toWord32
 
-smallValueToHexDec :: MimaWord -> T.Text
+smallValueToHexDec :: SmallValue -> T.Text
 smallValueToHexDec mw = smallValueToHex mw <> " (" <> smallValueToDec mw <> ")"
 
 signedSmallValueToWord :: SmallValue -> MimaWord
