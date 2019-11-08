@@ -1,7 +1,11 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Mima.Util
-  ( ToText(..)
+  (
+  -- * Formatting
+    ToText(..)
   , HexLike(..)
   , groupByTwoChars
   , integralToDec
@@ -9,7 +13,11 @@ module Mima.Util
   ) where
 
 import qualified Data.Text as T
+import           Data.Word
+import           Data.Word.Odd
 import qualified Numeric as N
+
+{- Formatting -}
 
 -- | A class for types that can be converted to 'T.Text'.
 --
@@ -24,12 +32,31 @@ import qualified Numeric as N
 class ToText a where
   toText :: a -> T.Text
 
+-- | A class for number-like types that have a decimal and a
+-- hexadecimal representation.
 class HexLike a where
   toDec :: a -> T.Text
   toHex :: a -> T.Text
 
   toHexBytes :: a -> T.Text
   toHexBytes = T.intercalate " " . groupByTwoChars . toHex
+
+instance HexLike Word24 where
+  toHex = integralToHex 6
+  toDec = T.pack . show
+
+instance HexLike Word20 where
+  toHex = integralToHex 5
+  toDec = T.pack . show
+
+instance HexLike Word16 where
+  toHex = integralToHex 4
+  toDec = T.pack . show
+
+instance HexLike Word4 where
+  toHex = integralToHex 1
+  toDec = T.pack . show
+
 
 groupByTwoChars :: T.Text -> [T.Text]
 groupByTwoChars = reverse . helper . T.unpack . T.reverse

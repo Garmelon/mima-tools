@@ -6,6 +6,7 @@ module Mima.Load
   ) where
 
 import           Control.Applicative
+import           Control.Monad
 import           Data.Binary
 import qualified Data.ByteString.Lazy as BS
 
@@ -15,19 +16,15 @@ import           Mima.State
 -- To prevent orphan instances and keep the compiler happy
 newtype LD t = LD { unLD :: t }
 
-instance Binary (LD (WB MimaWord_)) where
+instance Binary (LD MimaWord) where
   put mw = do
     let (w1, w2, w3) = wordToBytes $ unLD mw
-    put w1
-    put w2
-    put w3
+    forM_ [w1, w2, w3] put
   get = do
-    w1 <- get
-    w2 <- get
-    w3 <- get
-    pure $ LD $ bytesToWord w1 w2 w3
+    bytes <- (,,) <$> get <*> get <*> get
+    pure $ LD $ bytesToWord bytes
 
-instance Binary (LD (WB LargeValue_)) where
+instance Binary (LD LargeValue) where
   put = put . LD . largeValueToWord . unLD
   get = (LD . getLargeValue) <$> unLD <$> get
 

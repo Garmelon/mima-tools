@@ -51,35 +51,6 @@ wordsToMemory = MimaMemory
 memoryToWords :: MimaMemory -> [MimaWord]
 memoryToWords mem = map (\addr -> readAt addr mem) $ addressRange mem
 
-{-
-addrWordLegend :: T.Text
-addrWordLegend = "SO: Small Opcode (bits 23-20)    LO: Large Opcode (bits 19-16)\n"
-                 <> "Addr  (decimal)    -    Word   ( decimal|SO,LO,   Addr)    -    Instruction\n"
-
-addrWordToText :: MimaAddress -> MimaWord -> T.Text
-addrWordToText addr word =
-  let separator = "    -    "
-      addrText  = addrToHex addr <> " (" <> addrToDec addr <> ")"
-      wordSplit = toDec 2 (upperOpcode word) <> ","
-                  <> toDec 2 (lowerOpcode word) <> ","
-                  <> addrToDec (address word)
-      wordText  = wordToHex word <> " (" <> wordToDec word <> "|" <> wordSplit <> ")"
-      instrText = case wordToInstruction word of
-        Left _  -> ""
-        Right i -> separator <> toText i
-  in  addrText <> separator <> wordText <> instrText
-
-memoryToText :: Bool -> MimaMemory -> T.Text
-memoryToText sparse mem@(MimaMemory m)
-  = (addrWordLegend <>)
-  $ T.intercalate "\n"
-  $ map (\addr -> addrWordToText addr (readAt addr mem))
-  $ addresses sparse
-  where
-    addresses False = addressRange mem
-    addresses True  = Map.keys m
--}
-
 readAt :: MimaAddress -> MimaMemory -> MimaWord
 readAt addr (MimaMemory m) = Map.findWithDefault zeroBits addr m
 
@@ -143,7 +114,7 @@ doSmallOpcode :: SmallOpcode -> LargeValue -> MimaState -> MimaState
 doSmallOpcode LDC  lv   ms@MimaState{..} = ms{msACC = largeValueToWord lv}
 doSmallOpcode LDV  addr ms@MimaState{..} = ms{msACC = readAt addr msMemory}
 doSmallOpcode STV  addr ms@MimaState{..} = ms{msMemory = writeAt addr msACC msMemory}
-doSmallOpcode ADD  addr ms@MimaState{..} = ms{msACC = addWords msACC $ readAt addr msMemory}
+doSmallOpcode ADD  addr ms@MimaState{..} = ms{msACC = msACC +     readAt addr msMemory}
 doSmallOpcode AND  addr ms@MimaState{..} = ms{msACC = msACC .&.   readAt addr msMemory}
 doSmallOpcode OR   addr ms@MimaState{..} = ms{msACC = msACC .|.   readAt addr msMemory}
 doSmallOpcode XOR  addr ms@MimaState{..} = ms{msACC = msACC `xor` readAt addr msMemory}
@@ -151,14 +122,14 @@ doSmallOpcode EQL  addr ms@MimaState{..} = ms{msACC = boolToWord $ msACC == read
 doSmallOpcode JMP  addr ms@MimaState{..} = ms{msIAR = addr}
 doSmallOpcode JMN  addr ms@MimaState{..} = if topBit msACC then ms{msIAR = addr} else ms
 doSmallOpcode LDIV addr ms@MimaState{..} =
-  let indirAddr = getAddress $ readAt addr msMemory
+  let indirAddr = getLargeValue $ readAt addr msMemory
   in  ms{msACC = readAt indirAddr msMemory}
 doSmallOpcode STIV addr ms@MimaState{..} =
-  let indirAddr = getAddress $ readAt addr msMemory
+  let indirAddr = getLargeValue $ readAt addr msMemory
   in  ms{msMemory = writeAt indirAddr msACC msMemory}
 doSmallOpcode CALL addr ms@MimaState{..} = ms{msRA = msIAR, msIAR = addr}
-doSmallOpcode LDVR addr ms@MimaState{..} = ms{msACC = readAt (addLargeValues msSP addr) msMemory}
-doSmallOpcode STVR addr ms@MimaState{..} = ms{msMemory = writeAt (addLargeValues msSP addr) msACC msMemory}
+doSmallOpcode LDVR addr ms@MimaState{..} = ms{msACC = readAt (msSP + addr) msMemory}
+doSmallOpcode STVR addr ms@MimaState{..} = ms{msMemory = writeAt (msSP + addr) msACC msMemory}
 
 doLargeOpcode :: LargeOpcode -> SmallValue -> MimaState -> Either AbortReason MimaState
 doLargeOpcode HALT _  _                = Left Halted
@@ -166,12 +137,12 @@ doLargeOpcode NOT  _  ms@MimaState{..} = pure ms{msACC = complement msACC}
 doLargeOpcode RAR  _  ms@MimaState{..} = pure ms{msACC = rotateR msACC 1}
 doLargeOpcode RET  _  ms@MimaState{..} = pure ms{msIAR = msRA}
 doLargeOpcode LDRA _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msRA}
-doLargeOpcode STRA _  ms@MimaState{..} = pure ms{msRA  = getAddress msACC}
+doLargeOpcode STRA _  ms@MimaState{..} = pure ms{msRA  = getLargeValue msACC}
 doLargeOpcode LDSP _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msSP}
-doLargeOpcode STSP _  ms@MimaState{..} = pure ms{msSP  = getAddress msACC}
+doLargeOpcode STSP _  ms@MimaState{..} = pure ms{msSP  = getLargeValue msACC}
 doLargeOpcode LDFP _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msFP}
-doLargeOpcode STFP _  ms@MimaState{..} = pure ms{msFP  = getAddress msACC}
-doLargeOpcode ADC  sv ms@MimaState{..} = pure ms{msACC = addWords msACC $ signedSmallValueToWord sv}
+doLargeOpcode STFP _  ms@MimaState{..} = pure ms{msFP  = getLargeValue msACC}
+doLargeOpcode ADC  sv ms@MimaState{..} = pure ms{msACC = msACC + signedSmallValueToWord sv}
 
 run :: MimaState -> (MimaState, AbortReason, Integer)
 run ms = helper 0 ms
