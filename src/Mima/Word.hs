@@ -31,7 +31,7 @@ type SmallValue  = Word16
 type Opcode      = Word4
 
 topBit :: (FiniteBits b) => b -> Bool
-topBit b = testBit b $ finiteBitSize b
+topBit b = testBit b $ finiteBitSize b - 1
 
 bytesToWord :: (Word8, Word8, Word8) -> MimaWord
 bytesToWord (w1, w2, w3) =
