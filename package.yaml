@@ -33,10 +33,9 @@ library:
 
 executables:
   mima-run:
-    main: MimaRun.hs
-    source-dirs: app
+    main: Main.hs
+    source-dirs: app/MimaRun
     ghc-options:
-    - -main-is MimaRun
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
