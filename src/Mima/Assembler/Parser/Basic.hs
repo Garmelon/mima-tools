@@ -20,6 +20,7 @@ module Mima.Assembler.Parser.Basic
   , largeValue
   , largeValue'
   , smallValue
+  , smallValue'
   -- * Stateful parsing
   , StatefulParser
   , runStatefulParser
@@ -105,14 +106,18 @@ mimaWord :: Parser MimaWord
 mimaWord = lexeme $ label "24-bit number" $ fromHex 24 <|> fromDec 24
 
 largeValue :: Parser LargeValue
-largeValue = lexeme $ largeValue'
+largeValue = lexeme largeValue'
 
 -- | Non-lexeme version of 'largeValue'
 largeValue' :: Parser LargeValue
 largeValue' = label "20-bit number" $ fromHex 20 <|> fromDec 20
 
 smallValue :: Parser SmallValue
-smallValue = lexeme $ label "16-bit number" $ fromHex 16 <|> fromDec 16
+smallValue = lexeme smallValue'
+
+-- | Non-lexeme version of 'smallValue'
+smallValue' :: Parser SmallValue
+smallValue' = label "16-bit number" $ fromHex 16 <|> fromDec 16
 
 {- Stateful parsing -}
 

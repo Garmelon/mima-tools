@@ -6,6 +6,7 @@ module Mima.Assembler.Parser.Label
   , resolveLabel
   , Address
   , address
+  , resolveAddress
   ) where
 
 import qualified Data.Map as Map
@@ -50,4 +51,8 @@ data Address = Direct LargeValue | Indirect MimaLabel
   deriving (Show)
 
 address :: Parser Address
-address = try (Direct <$> largeValue) <|> (Indirect <$> mimaLabel')
+address = try (Direct <$> largeValue) <|> (Indirect <$> mimaLabel)
+
+resolveAddress :: Map.Map MimaLabel MimaAddress -> Address -> Parser MimaAddress
+resolveAddress _      (Direct addr) = pure addr
+resolveAddress labels (Indirect l)  = resolveLabel labels l
