@@ -13,6 +13,8 @@ module Mima.Word
   , boolToWord
   , largeValueToWord
   , signedSmallValueToWord
+  , wordFromSmallOpcode
+  , wordFromLargeOpcode
   -- ** 'MimaWord' properties
   , getSmallOpcode
   , getLargeOpcode
@@ -58,6 +60,12 @@ signedSmallValueToWord :: SmallValue -> MimaWord
 signedSmallValueToWord sv
   | topBit sv = 0xFF0000 .|. fromIntegral sv
   | otherwise = fromIntegral sv
+
+wordFromSmallOpcode :: Opcode -> LargeValue -> MimaWord
+wordFromSmallOpcode so lv = shiftL (fromIntegral so) 20 .|. fromIntegral lv
+
+wordFromLargeOpcode :: Opcode -> SmallValue -> MimaWord
+wordFromLargeOpcode lo sv = 0xF00000 .|. shiftL (fromIntegral lo) 16 .|. fromIntegral sv
 
 getSmallOpcode :: MimaWord -> Opcode
 getSmallOpcode mw = fromIntegral $ shiftR mw 20

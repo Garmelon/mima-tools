@@ -5,6 +5,7 @@ module Mima.Instruction
   , LargeOpcode(..)
   , Instruction(..)
   , wordToInstruction
+  , instructionToWord
   ) where
 
 import qualified Data.Map.Strict as Map
@@ -105,3 +106,7 @@ parseLargeOpcode w = case largeOpcodeMap Map.!? w of
   Just oc -> pure oc
   Nothing -> Left $ "Unknown large opcode " <> T.pack (show w)
                      <> " (" <> integralToHex 1 w <> ")"
+
+instructionToWord :: Instruction -> MimaWord
+instructionToWord (SmallInstruction so lv) = wordFromSmallOpcode (smallOpcodeNr so) lv
+instructionToWord (LargeInstruction lo sv) = wordFromLargeOpcode (largeOpcodeNr lo) sv

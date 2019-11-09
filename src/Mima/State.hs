@@ -11,11 +11,12 @@ module Mima.State
   , addressRange
   , sparseAddressRange
   -- ** Converting
+  , mapToMemory
   , wordsToMemory
   , memoryToWords
   -- * State
   , MimaState(..)
-  , initialState
+  , basicState
   , AbortReason(..)
   , step
   , run
@@ -42,9 +43,11 @@ addressRange (MimaMemory m) =
 sparseAddressRange :: MimaMemory -> [MimaAddress]
 sparseAddressRange (MimaMemory m) = Map.keys m
 
+mapToMemory :: Map.Map MimaAddress MimaWord -> MimaMemory
+mapToMemory = MimaMemory . Map.filter (/= zeroBits)
+
 wordsToMemory :: [MimaWord] -> MimaMemory
-wordsToMemory = MimaMemory
-              . Map.filter (/= zeroBits)
+wordsToMemory = mapToMemory
               . Map.fromAscList
               . zip [minBound..]
 
@@ -68,17 +71,8 @@ data MimaState = MimaState
   , msMemory :: !MimaMemory
   } deriving (Show)
 
--- | A possible initial MiMa state, where every register is
--- zeroed. Thus, execution starts at address 0x00000.
-initialState :: MimaMemory -> MimaState
-initialState mem = MimaState
-  { msIAR    = zeroBits
-  , msACC    = zeroBits
-  , msRA     = zeroBits
-  , msSP     = zeroBits
-  , msFP     = zeroBits
-  , msMemory = mem
-  }
+basicState :: MimaMemory -> MimaState
+basicState = MimaState zeroBits zeroBits zeroBits zeroBits zeroBits
 
 data AbortReason = Halted | InvalidInstruction T.Text | InvalidNextIarAddress
   deriving (Show)
