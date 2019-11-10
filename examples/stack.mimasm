@@ -1,0 +1,175 @@
+; This file is intended to demonstrate how stack frames and function
+; calls could be implemented.
+;
+; The stack starts at 0xfffff and grows towards 0x00000. The stack
+; pointer always points to the next free address below the stack. This
+; means that if the stack pointer is at 0xfffff, the stack is empty.
+;
+; The frame pointer points to the beginning of the stack frame. If the
+; stack pointer points at the same position as the frame pointer, the
+; current stack frame is empty.
+;
+; Functions take a fixed number of arguments. For this example, all
+; values have a size of one word (24 bit).
+
+IAR = caller
+RA = 12345 ; to test whether the caller stores and restores the RA correctly
+SP = 0xfffff
+FP = 0xfffff
+
+; Temporary variables at a fixed memory location
+;
+; These are useful for commands like ADD, which need a fixed memory
+; address. They are always under the complete control of the currently
+; running function.
+tmp1: LIT 0
+tmp2: LIT 0
+tmp3: LIT 0
+tmp4: LIT 0
+tmp5: LIT 0
+
+100:
+caller:
+  ; 1. Push RA onto current stack frame
+  LDRA
+  STVR 0
+  LDSP
+  ADC -1
+  STSP ; SP offset: 1
+
+  ; 2. Create a new shared stack frame
+  LDFP
+  STVR 0
+  LDSP
+  ADC -1
+  STSP
+  STFP
+
+  ; 3. Push function parameters onto shared stack frame
+  LDC 5
+  STVR 0
+  LDC 7
+  STVR -1
+  LDSP
+  ADC -2
+  STSP ; SP offset: 2
+
+  ; 4. Create space for return values
+  LDSP
+  ADC -2
+  STSP; SP offset: 4
+  
+  ; Now, the shared stack frame looks like this:
+  ; 4: argument 1
+  ; 3: argument 2
+  ; 2: return value 1
+  ; 1: return value 2
+
+  ; 5. Call callee
+  CALL callee
+  
+  ; 6. Copy resulting values from the shared stack frame, so we can
+  ; restore our own stack frame
+  LDVR 2
+  STV tmp1
+  LDVR 1
+  STV tmp2
+
+  ; 7. Restore own stack frame
+  LDFP
+  ADC 1
+  STSP
+  LDVR 0
+  STFP
+  
+  ; 8. Pop and restore RA
+  LDVR 1
+  STRA
+  LDSP
+  ADC 1
+  STSP ; SP offset: 0
+  
+  ; Now, we can use the results, or put them onto our own stack like so:
+  LDV tmp1
+  STVR 0
+  LDV tmp2
+  STVR -1
+  LDSP
+  ADC -2
+  STSP ; SP offset: 2
+  
+  HALT
+
+500:
+callee:
+  ; This callee doesn't really need its own stack since all
+  ; calculations did fit into the temporary variables. I still created
+  ; a stack frame for this function to demonstrate how it would work
+  ; if a stack was required.
+
+  ; 1. Create own stack frame
+  LDFP
+  STVR 0
+  LDSP
+  ADC -1
+  STSP
+  STFP
+
+  ; Now, the shared stack frame looks like this:
+  ; 5: argument 1
+  ; 4: argument 2
+  ; 3: return value 1
+  ; 2: return value 2
+  ; 1: previous FP
+  ;
+  ; The compiler needs to keep track of the offset of the SP within
+  ; the current stack frame, so that LDVR and STVR have the correct
+  ; offset when accessing variables inside it (or the previous, shared
+  ; stack frame).
+
+  ; 2. Load arguments into temporary variables
+  LDVR 5
+  STV tmp1
+  LDVR 4
+  STV tmp2
+  
+  ; 3. Add arguments and put result into return value 1
+  LDV tmp1
+  ADD tmp2
+  STVR 3
+  
+  ; 4. Multiply arguments and put result into return value 2
+  LDC 0
+  STV tmp3 ; For comparison in loop
+  STV tmp4 ; For accumulating result
+
+  callee-loop:
+  ; Break if counter (tmp1) is zero
+  LDV tmp1
+  EQL tmp3
+  JMN callee-loop-end
+  ; Decrement counter (tmp1) by 1
+  LDV tmp1
+  ADC -1
+  STV tmp1
+  ; Increment result (tmp4) by the second argument (tmp2)
+  LDV tmp4
+  ADD tmp2
+  STV tmp4
+  ; And repeat the loop
+  JMP callee-loop
+  
+  callee-loop-end:
+  ; Save the result in return value 2
+  LDV tmp4
+  STVR 2
+
+  ; 5. Restore shared stack frame
+  LDFP
+  ADC 1
+  STSP
+  LDVR 0
+  STFP
+  
+  ; And this function is done :)
+  RET
