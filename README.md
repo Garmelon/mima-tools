@@ -3,7 +3,9 @@
 A set of tools and specifications related to the MiMa
 (Minimalmaschine).
 
-* [Programs](#programs)
+* [Tools](#tools)
+  * [mima-run](#mima-run)
+  * [mima-asm](#mima-asm)
 * [Specification](#specification)
   * [Instructions](#instructions)
   * [Registers](#registers)
@@ -11,9 +13,11 @@ A set of tools and specifications related to the MiMa
   * [Memory dump file format: `.mima`](#memory-dump-file-format-mima)
 * [Conventions](#conventions)
 
-## Programs
+For example MiMa programs, see the [examples folder](examples/).
 
-### `mima-run`
+## Tools
+
+### mima-run
 
 This program can load and run `.mima` files.
 
@@ -36,7 +40,7 @@ Available options:
                            further actions. Roughly equivalent to -n 0
 ```
 
-### `mima-asm`
+### mima-asm
 
 This program can parse `.mimasm` files and convert them to `.mima`
 files. More information and a specification of the `.mimasm` format
