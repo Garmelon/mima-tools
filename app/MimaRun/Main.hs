@@ -47,7 +47,7 @@ settingsParser = Settings
   <*> flag False True
       (long "norun"
        <> short 'r'
-       <> help "Don't run the MiMa. Use the initial state for all further actions")
+       <> help "Don't run the MiMa. Use the initial state for all further actions. Roughly equivalent to -n 0")
 
 opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
