@@ -1,0 +1,18 @@
+IAR = main
+ACC = 0
+RA = 0
+
+; This CALL/RET example does not use any sort of stack, and thus can
+; only go 1 call deep. Nevertheless, it demonstrates how the CALL and
+; RET instructions behave.
+
+main:
+  LDC 0
+  ADC 1
+  CALL sub ; Sets the RA to the next address (in this case, ADC 4)
+  ADC 4
+  HALT
+
+sub:
+  ADC 50
+  RET ; Jumps to the ADC 4
