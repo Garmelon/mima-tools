@@ -10,6 +10,7 @@ module Mima.Assembler.Parser.Label
   , resolveAddress
   ) where
 
+import           Data.Char
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Text.Megaparsec
@@ -33,8 +34,10 @@ mimaLabel = lexeme mimaLabel'
 
 mimaLabel' :: Parser MimaLabel
 mimaLabel' = label "label" $ do
-  name <- takeWhile1P Nothing (\c -> isAlphabet c || isConnecting c)
+  firstChar  <- satisfy isAlphabet
+  otherChars <- takeWhileP Nothing (\c -> isAlphabet c || isConnecting c || isDigit c)
   offset <- getOffset
+  let name = T.singleton firstChar <> otherChars
   pure MimaLabel{lName = name, lOffset = offset}
 
 failAtLabel :: MimaLabel -> String -> Parser a

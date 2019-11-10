@@ -39,11 +39,8 @@ incrementCurrentPos = do
   put s{sCurrentPos = succ $ sCurrentPos s}
 
 parseInstructions' :: SParser ()
-parseInstructions' = sepBy parseInstruction' incrementCurrentPos >> lift (eof <|> fail atMaxAddress)
+parseInstructions' = sepBy parseInstruction' incrementCurrentPos >> lift eof
   where
-    atMaxAddress = "already at maximum address (" ++ show (maxBound :: MimaAddress)
-                   ++ ") - can't go any further"
-
     parseInstruction' :: SParser ()
     parseInstruction' = do
       s <- get
