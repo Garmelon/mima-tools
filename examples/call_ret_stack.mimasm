@@ -1,0 +1,71 @@
+IAR = main
+ACC = 0
+RA = 0
+SP = 0xfffff
+
+; In this example, the stack pointer points to the next free address
+; below the stack. The stack grows downwards from large to small
+; addresses. The stack has no stack frames to simplify the program.
+
+counter: LIT 0
+
+100:
+main:
+  ; set counter bit 0
+  LDV counter
+  ADC 0x01
+  STV counter
+  
+  ; Since we're top-level, we don't need to (re-)store our RA when calling
+  CALL sub-a
+
+  ; set counter bit 1
+  LDV counter
+  ADC 0x02
+  STV counter
+
+  HALT
+
+200:
+sub-a:
+  ; Set counter bit 2
+  LDV counter
+  ADC 0x04
+  STV counter
+  
+  ;; Store the current RA on the stack
+  ; Store the RA at current position of stack pointer
+  LDRA
+  STVR 0
+  ; Move stack pointer by 1 since the stack grew
+  LDSP
+  ADC -1
+  STSP
+  
+  ; Call the subfunction
+  CALL sub-b
+
+  ;; Pop and restore the RA from the stack
+  ; Read RA from the top of the stack
+  LDVR 1
+  STRA
+  ; Remove top element from stack
+  LDSP
+  ADC 1
+  STSP
+
+  ; Set counter bit 3
+  LDV counter
+  ADC 0x08
+  STV counter
+
+  RET
+
+300:
+sub-b:
+  ; Set counter bit 4
+  LDV counter
+  ADC 0x10
+  STV counter
+
+  RET
