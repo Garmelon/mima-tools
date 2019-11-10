@@ -69,7 +69,7 @@ rawInstruction = label "instruction" $
   where
     -- These assume that the parser is a lexeme
     instr  parser = lexeme whitespace *> parser
-    instr' parser = try (instr parser) <|> pure 0
+    instr' parser = try (instr parser) <|> lexeme (pure 0)
 
 rawInstructionToWord :: RawInstruction MimaAddress -> MimaWord
 rawInstructionToWord (RawLIT word) = word
