@@ -1,5 +1,6 @@
 module Mima.Assembler.Parser.Label
   ( MimaLabel
+  , lName
   , mimaLabel
   , mimaLabel'
   , failAtLabel

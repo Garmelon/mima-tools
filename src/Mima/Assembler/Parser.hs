@@ -8,13 +8,16 @@ import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import qualified Data.Map as Map
+import           Data.Maybe
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import           Text.Megaparsec
 
 import           Mima.Assembler.Parser.Basic
 import           Mima.Assembler.Parser.Instruction
 import           Mima.Assembler.Parser.Label
 import           Mima.Assembler.Parser.RawInstruction
+import           Mima.Assembler.Parser.Register
 import           Mima.State
 import           Mima.Word
 
@@ -58,6 +61,20 @@ parseInstructions = do
   (_, s) <- runStatefulParser parseInstructions' initialState
   pure (sLabels s, sInstructions s)
 
+resolveRegisters :: Map.Map MimaLabel MimaAddress
+                 -> Registers Address
+                 -> Parser (Registers MimaAddress)
+resolveRegisters labels reg = do
+  iar <- resolveMaybeAddress $ regIAR reg
+  ra  <- resolveMaybeAddress $ regRA reg
+  sp  <- resolveMaybeAddress $ regSP reg
+  fp  <- resolveMaybeAddress $ regFP reg
+  pure reg{regIAR = iar, regRA = ra, regSP = sp, regFP = fp}
+  where
+    resolveMaybeAddress :: Maybe Address -> Parser (Maybe MimaAddress)
+    resolveMaybeAddress (Just addr) = Just <$> resolveAddress labels addr
+    resolveMaybeAddress Nothing     = pure Nothing
+
 resolveRawInstruction :: Map.Map MimaLabel MimaAddress
                       -> RawInstruction Address
                       -> Parser (RawInstruction MimaAddress)
@@ -77,10 +94,23 @@ resolveLabels labels rawLabeledInstructions = do
   let rawInstructions = Map.fromList instrList
   pure rawInstructions
 
-parseState :: Parser MimaState
+stateFromRegisters :: Registers MimaAddress -> MimaMemory -> MimaState
+stateFromRegisters reg mem =
+  MimaState { msIAR = fromMaybe 0 $ regIAR reg
+            , msACC = fromMaybe 0 $ regACC reg
+            , msRA  = fromMaybe 0 $ regRA reg
+            , msSP  = fromMaybe 0 $ regSP reg
+            , msFP  = fromMaybe 0 $ regFP reg
+            , msMemory = mem
+            }
+
+parseState :: Parser (MimaState, Map.Map T.Text MimaAddress)
 parseState = do
   space
-  (labels, rawLabeledInstructions) <- parseInstructions
-  rawInstructions <- resolveLabels labels rawLabeledInstructions
+  unresolvedRegisters <- parseRegisters
+  (labels, unresolvedRawInstructions) <- parseInstructions
+  registers <- resolveRegisters labels unresolvedRegisters
+  rawInstructions <- resolveLabels labels unresolvedRawInstructions
   let mem = mapToMemory $ Map.map rawInstructionToWord rawInstructions
-  pure $ basicState mem
+      labelNames = Map.fromList $ map (\(k, v) -> (lName k, v)) $ Map.toList labels
+  pure (stateFromRegisters registers mem, labelNames)
