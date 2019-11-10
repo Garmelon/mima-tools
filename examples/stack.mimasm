@@ -12,8 +12,7 @@
 ; Functions take a fixed number of arguments. For this example, all
 ; values have a size of one word (24 bit).
 
-IAR = caller
-RA = 12345 ; to test whether the caller stores and restores the RA correctly
+IAR = main
 SP = 0xfffff
 FP = 0xfffff
 
@@ -29,78 +28,93 @@ tmp4: LIT 0
 tmp5: LIT 0
 
 100:
-caller:
-  ; 1. Push RA onto current stack frame
-  LDRA
-  STVR 0
-  LDSP
-  ADC -1
-  STSP ; SP offset: 1
+main:
+  CALL caller
+  HALT
 
-  ; 2. Create a new shared stack frame
+200:
+caller:
+  ;; 1. Initialisation
+
+  ; 1.1. Create own stack frame
   LDFP
-  STVR 0
+  STRS 0
   LDSP
   ADC -1
   STSP
   STFP
 
-  ; 3. Push function parameters onto shared stack frame
-  LDC 5
-  STVR 0
-  LDC 7
-  STVR -1
+  ; 2. Push RA onto current stack frame
+  LDRA
+  STRS 0
   LDSP
-  ADC -2
-  STSP ; SP offset: 2
+  ADC -1
+  STSP
+  
+  ; Do some work here
+  
+  ;; 2. Prepare call
 
-  ; 4. Create space for return values
+  ; 2.1. Create a new shared stack frame
+  LDFP
+  STRS 0
   LDSP
-  ADC -2
-  STSP; SP offset: 4
+  ADC -1
+  STSP
+  STFP
+
+  ; 2.2. Write function parameters onto shared stack frame and keep
+  ; space for return values
+  LDC 5
+  STRF 0
+  LDC 7
+  STRF -1
+  LDFP
+  ADC -4 ; 2 parameters and 2 return values
+  STSP
   
   ; Now, the shared stack frame looks like this:
-  ; 4: argument 1
-  ; 3: argument 2
-  ; 2: return value 1
-  ; 1: return value 2
+  ;
+  ; FP offset | Value
+  ;         0 | argument 1
+  ;        -1 | argument 2
+  ;        -2 | return value 1
+  ;        -3 | return value 2
 
-  ; 5. Call callee
+  ;; 3. Call callee
   CALL callee
   
-  ; 6. Copy resulting values from the shared stack frame, so we can
+  ;; 4. Cleanup after call
+  
+  ; 4.1. Copy resulting values from the shared stack frame, so we can
   ; restore our own stack frame
-  LDVR 2
+  LDRF -2
   STV tmp1
-  LDVR 1
+  LDRF -3
   STV tmp2
 
-  ; 7. Restore own stack frame
+  ; 4.2. Restore own stack frame
   LDFP
   ADC 1
   STSP
-  LDVR 0
+  LDRF 1
   STFP
   
-  ; 8. Pop and restore RA
-  LDVR 1
+  ; Now, we can use the results stored in tmp1 and tmp2.
+  ; Do some more work here
+
+  ;; 5. Cleanup before RET
+  
+  ; 5.1. Pop and restore RA
+  LDRS 1
   STRA
   LDSP
   ADC 1
-  STSP ; SP offset: 0
+  STSP
   
-  ; Now, we can use the results, or put them onto our own stack like so:
-  LDV tmp1
-  STVR 0
-  LDV tmp2
-  STVR -1
-  LDSP
-  ADC -2
-  STSP ; SP offset: 2
-  
-  HALT
+  RET
 
-500:
+300:
 callee:
   ; This callee doesn't really need its own stack since all
   ; calculations did fit into the temporary variables. I still created
@@ -109,34 +123,33 @@ callee:
 
   ; 1. Create own stack frame
   LDFP
-  STVR 0
+  STRS 0
   LDSP
   ADC -1
   STSP
   STFP
 
-  ; Now, the shared stack frame looks like this:
-  ; 5: argument 1
-  ; 4: argument 2
-  ; 3: return value 1
-  ; 2: return value 2
-  ; 1: previous FP
+  ; Since we've pushed the old FP to the shared stack frame (which now
+  ; has length 5) and moved the FP to after that, we've in effect
+  ; added 5 to the FP offset. This means that the shared stack frame
+  ; now looks like this:
   ;
-  ; The compiler needs to keep track of the offset of the SP within
-  ; the current stack frame, so that LDVR and STVR have the correct
-  ; offset when accessing variables inside it (or the previous, shared
-  ; stack frame).
+  ; FP offset | Value
+  ;         5 | argument 1
+  ;         4 | argument 2
+  ;         3 | return value 1
+  ;         2 | return value 2
 
   ; 2. Load arguments into temporary variables
-  LDVR 5
+  LDRF 5
   STV tmp1
-  LDVR 4
+  LDRF 4
   STV tmp2
   
   ; 3. Add arguments and put result into return value 1
   LDV tmp1
   ADD tmp2
-  STVR 3
+  STRF 3
   
   ; 4. Multiply arguments and put result into return value 2
   LDC 0
@@ -162,13 +175,13 @@ callee:
   callee-loop-end:
   ; Save the result in return value 2
   LDV tmp4
-  STVR 2
+  STRF 2
 
   ; 5. Restore shared stack frame
   LDFP
   ADC 1
   STSP
-  LDVR 0
+  LDRF 1
   STFP
   
   ; And this function is done :)

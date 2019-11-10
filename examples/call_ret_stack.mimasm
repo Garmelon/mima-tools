@@ -17,7 +17,7 @@ main:
   STV counter
   
   ; Since we're top-level, we don't need to (re-)store our RA when calling
-  CALL sub-a
+  CALL sub-1
 
   ; set counter bit 1
   LDV counter
@@ -27,7 +27,7 @@ main:
   HALT
 
 200:
-sub-a:
+sub-1:
   ; Set counter bit 2
   LDV counter
   ADC 0x04
@@ -36,18 +36,18 @@ sub-a:
   ;; Store the current RA on the stack
   ; Store the RA at current position of stack pointer
   LDRA
-  STVR 0
+  STRS 0
   ; Move stack pointer by 1 since the stack grew
   LDSP
   ADC -1
   STSP
   
   ; Call the subfunction
-  CALL sub-b
+  CALL sub-2
 
   ;; Pop and restore the RA from the stack
   ; Read RA from the top of the stack
-  LDVR 1
+  LDRS 1
   STRA
   ; Remove top element from stack
   LDSP
@@ -62,7 +62,7 @@ sub-a:
   RET
 
 300:
-sub-b:
+sub-2:
   ; Set counter bit 4
   LDV counter
   ADC 0x10
