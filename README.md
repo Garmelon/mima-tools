@@ -142,8 +142,6 @@ always be at least 15 bytes long (contains all register values).
 
 This program can load and run `.mima` files.
 
-It currently does not follow the specification above.
-
 ```
 $ mima-run --help
 Usage: mima-run INFILE [-n|--steps N] [-d|--dump OUTFILE] [-q|--quiet]
@@ -161,6 +159,24 @@ Available options:
                            in the memory dump
   -r,--norun               Don't run the MiMa. Use the initial state for all
                            further actions
+```
+
+### `mima-asm`
+
+This program can parse `.mimasm` files and convert them to `.mima`
+files. More information and a specification of the `.mimasm` format
+may be coming soon. For example programs, look in the `examples/`
+folder.
+
+```
+$ mima-asm --help
+Usage: mima-asm INFILE [-o|--out OUTFILE]
+
+Available options:
+  -h,--help                Show this help text
+  INFILE                   The .mimasm file to assemble
+  -o,--out OUTFILE         The .mima file to write the assembled result
+                           to (default: "out.mima")
 ```
 
 ## Conventions

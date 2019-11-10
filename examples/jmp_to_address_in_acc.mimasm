@@ -1,0 +1,28 @@
+IAR = technique-a
+
+; This file demonstrates a few techniques for jumping to an address
+; stored in the ACC.
+
+; A few variables
+jump-instruction: JMP 0
+tmp:              LIT 0
+
+; Jumping by setting the RA and then returning
+100:
+technique-a:
+  LDC technique-b
+  STRA
+  RET
+
+; Jumping by writing a JMP instruction to a memory location and then
+; jumping to that (aka. almost self-modifying code)
+200:
+technique-b:
+  LDC end
+  OR jump-instruction
+  STV tmp
+  JMP tmp
+
+300:
+end:
+  HALT
