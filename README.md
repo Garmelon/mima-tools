@@ -1,11 +1,58 @@
 # mima-tools
 
+A set of tools and specifications related to the MiMa
+(Minimalmaschine).
+
+* [Programs](#programs)
 * [Specification](#specification)
   * [Instructions](#instructions)
   * [Registers](#registers)
   * [Opcodes](#opcodes)
   * [Memory dump file format: `.mima`](#memory-dump-file-format-mima)
-* [Programs](#programs)
+* [Conventions](#conventions)
+
+## Programs
+
+### `mima-run`
+
+This program can load and run `.mima` files.
+
+```
+$ mima-run --help
+Usage: mima-run INFILE [-n|--steps N] [-d|--dump OUTFILE] [-q|--quiet]
+                [-s|--sparse] [-r|--norun]
+
+Available options:
+  -h,--help                Show this help text
+  INFILE                   The binary memory dump to load and execute
+  -n,--steps N             How many instructions to execute (if not specified,
+                           runs until HALT or execution exception)
+  -d,--dump OUTFILE        If specified, write the MiMa's binary memory dump to
+                           this file after execution is finished
+  -q,--quiet               Don't print the memory dump
+  -s,--sparse              Don't print memory locations containing only 0x000000
+                           in the memory dump
+  -r,--norun               Don't run the MiMa. Use the initial state for all
+                           further actions. Roughly equivalent to -n 0
+```
+
+### `mima-asm`
+
+This program can parse `.mimasm` files and convert them to `.mima`
+files. More information and a specification of the `.mimasm` format
+may be coming soon. For example programs, look in the `examples/`
+folder.
+
+```
+$ mima-asm --help
+Usage: mima-asm INFILE [-o|--out OUTFILE]
+
+Available options:
+  -h,--help                Show this help text
+  INFILE                   The .mimasm file to assemble
+  -o,--out OUTFILE         The .mima file to write the assembled result
+                           to (default: "out.mima")
+```
 
 ## Specification
 
@@ -148,49 +195,6 @@ unspecified values are to be intialized as `0x000000`.
 
 A `.mima` file must always be a multiple of 3 bytes long. It must
 always be at least 15 bytes long (contains all register values).
-
-## Programs
-
-### `mima-run`
-
-This program can load and run `.mima` files.
-
-```
-$ mima-run --help
-Usage: mima-run INFILE [-n|--steps N] [-d|--dump OUTFILE] [-q|--quiet]
-                [-s|--sparse] [-r|--norun]
-
-Available options:
-  -h,--help                Show this help text
-  INFILE                   The binary memory dump to load and execute
-  -n,--steps N             How many instructions to execute (if not specified,
-                           runs until HALT or execution exception)
-  -d,--dump OUTFILE        If specified, write the MiMa's binary memory dump to
-                           this file after execution is finished
-  -q,--quiet               Don't print the memory dump
-  -s,--sparse              Don't print memory locations containing only 0x000000
-                           in the memory dump
-  -r,--norun               Don't run the MiMa. Use the initial state for all
-                           further actions
-```
-
-### `mima-asm`
-
-This program can parse `.mimasm` files and convert them to `.mima`
-files. More information and a specification of the `.mimasm` format
-may be coming soon. For example programs, look in the `examples/`
-folder.
-
-```
-$ mima-asm --help
-Usage: mima-asm INFILE [-o|--out OUTFILE]
-
-Available options:
-  -h,--help                Show this help text
-  INFILE                   The .mimasm file to assemble
-  -o,--out OUTFILE         The .mima file to write the assembled result
-                           to (default: "out.mima")
-```
 
 ## Conventions
 
