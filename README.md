@@ -1,8 +1,13 @@
 # mima-tools
 
-## MiMa specification
+* [Specification](#specification)
+  * [Instructions](#instructions)
+  * [Registers](#registers)
+  * [Opcodes](#opcodes)
+  * [Memory dump file format: `.mima`](#memory-dump-file-format-mima)
+* [Programs](#programs)
 
-### General
+## Specification
 
 In the following sections, `<a>` means "the value at the address
 `a`". In the case of `<<a>>`, bits 19-0 of `<a>` are interpreted as
@@ -62,45 +67,53 @@ ignored. They don't have to be set to 0.
 
 ### Opcodes
 
-| Opcode | Name                                        | Function                       |
-|--------|---------------------------------------------|--------------------------------|
-| `0`    | `LDC c` (load constant)                     | `c -> ACC`                     |
-| `1`    | `LDV a` (load value)                        | `<a> -> ACC`                   |
-| `2`    | `STV a` (store value)                       | `ACC -> <a>`                   |
-| `3`    | `ADD a`                                     | `ACC + <a> -> ACC`             |
-| `4`    | `AND a`                                     | `ACC and <a> -> ACC`           |
-| `5`    | `OR a`                                      | `ACC or <a> -> ACC`            |
-| `6`    | `XOR a`                                     | `ACC xor <a> -> ACC`           |
-| `7`    | `EQL a` (equal)                             | `(ACC == <a> ? -1 : 0) -> ACC` |
-| `8`    | `JMP a` (jump)                              | `a -> IAR`                     |
-| `9`    | `JMN a` (jump if negative)                  | `if (ACC < 0) {a -> IAR}`      |
-| `A`    | `LDIV a` (load indirect value)              | `<<a>> -> ACC`                 |
-| `B`    | `STIV a` (store indirect value)             | `ACC -> <<a>>`                 |
-| `C`    | `CALL a`                                    | `IAR -> RA; JMP a`             |
-| `D`    | `LDVR d` (load value with relative offset)  | `<SP + d> -> ACC`              |
-| `E`    | `STVR d` (store value with relative offset) | `ACC -> <SP + d>`              |
-| `F0`   | `HALT`                                      | Halt execution                 |
-| `F1`   | `NOT`                                       | `not ACC -> ACC`               |
-| `F2`   | `RAR` (rotate ACC right)                    | `ACC >> 1 -> ACC`              |
-| `F3`   | `RET` (return)                              | `RA -> IAR`                    |
-| `F4`   | `LDRA` (load from RA)                       | `RA -> ACC`                    |
-| `F5`   | `STRA` (store to RA)                        | `ACC -> RA`                    |
-| `F6`   | `LDSP` (load from SP)                       | `SP -> ACC`                    |
-| `F7`   | `STSP` (store to SP)                        | `ACC -> SP`                    |
-| `F8`   | `LDFP` (load from FP)                       | `FP -> ACC`                    |
-| `F9`   | `STFP` (store to FP)                        | `ACC -> FP`                    |
-| `FA`   | `ADC c` (add constant)                      | `ACC + c -> ACC`               |
+| Opcode | Name                            | Function                       |
+|--------|---------------------------------|--------------------------------|
+| `0`    | `LDC c` (load constant)         | `c -> ACC`                     |
+| `1`    | `LDV a` (load value)            | `<a> -> ACC`                   |
+| `2`    | `STV a` (store value)           | `ACC -> <a>`                   |
+| `3`    | `ADD a`                         | `ACC + <a> -> ACC`             |
+| `4`    | `AND a`                         | `ACC and <a> -> ACC`           |
+| `5`    | `OR a`                          | `ACC or <a> -> ACC`            |
+| `6`    | `XOR a`                         | `ACC xor <a> -> ACC`           |
+| `7`    | `EQL a` (equal)                 | `(ACC == <a> ? -1 : 0) -> ACC` |
+| `8`    | `JMP a` (jump)                  | `a -> IAR`                     |
+| `9`    | `JMN a` (jump if negative)      | `if (ACC < 0) {a -> IAR}`      |
+| `A`    | `LDIV a` (load indirect value)  | `<<a>> -> ACC`                 |
+| `B`    | `STIV a` (store indirect value) | `ACC -> <<a>>`                 |
+| `C`    | `CALL a`                        | `IAR -> RA; JMP a`             |
+| `D`    | `ADC c` (add constant)          | `ACC + c -> ACC`               |
+| `F0`   | `HALT`                          | Halt execution                 |
+| `F1`   | `NOT`                           | `not ACC -> ACC`               |
+| `F2`   | `RAR` (rotate ACC right)        | `ACC >> 1 -> ACC`              |
+| `F3`   | `RET` (return)                  | `RA -> IAR`                    |
+| `F4`   | `LDRA` (load from RA)           | `RA -> ACC`                    |
+| `F5`   | `STRA` (store to RA)            | `ACC -> RA`                    |
+| `F6`   | `LDSP` (load from SP)           | `SP -> ACC`                    |
+| `F7`   | `STSP` (store to SP)            | `ACC -> SP`                    |
+| `F8`   | `LDFP` (load from FP)           | `FP -> ACC`                    |
+| `F9`   | `STFP` (store to FP)            | `ACC -> FP`                    |
+| `FA`   | `LDRS o` (load relative to SP)  | `<SP + o> -> ACC`              |
+| `FB`   | `STRS o` (store relative to SP) | `ACC -> <SP + o>`              |
+| `FC`   | `LDRF o` (load relative to FP)  | `<FP + o> -> ACC`              |
+| `FD`   | `STRF o` (store relative to FP) | `ACC -> <FP + o>`              |
 
 * `LDC c` sets bits 23-20 of `ACC` to 0.
 * `ADD a`, `AND a`, `OR a`, `XOR a` and `NOT` are bitwise operations
-* `RAR` shifts all bits in the `ACC` right by one. The rightmost bit wraps around to the leftmost position.
-* `ADC c` interprets bits 15-0 as a signed integer, whose value is then added to the `ACC`'s current value.
+* `ADC c` interprets its 20-bit value as a signed integer, whose value
+  is then added to the `ACC`'s current value.
+* `RAR` shifts all bits in the `ACC` right by one. The rightmost bit
+  wraps around to the leftmost position.
+* `LDRS`, `STRS`, `LDRF` and `STRF` interpret their 16-bit value as a
+  signed integer, whose value is then added to the address in the
+  respective register.
 
-## File format
+## Memory dump file format: `.mima`
 
-All tools share a common file format with extension `.mima`. It
-contains the whole execution state of a MiMa, meaning the contents of
-its memory and all its registers.
+All tools share a common memory dump file format with extension
+`.mima`. It contains the whole execution state of a MiMa, meaning the
+contents of its memory and all its registers. It also doubles as "MiMa
+excutable" format.
 
 The file is split up into blocks of 3 bytes, which form MiMa
 words. The bytes within a word are ordered from most to least
@@ -119,7 +132,7 @@ with zeroes, like so:
 The registers and memory are stored as follows:
 
 |          Word | Content     |
-|--------------:|-------------|
+|--------------:|:------------|
 |             0 | `IAR`       |
 |             1 | `ACC`       |
 |             2 | `RA`        |
