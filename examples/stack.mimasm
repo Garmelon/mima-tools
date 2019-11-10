@@ -112,6 +112,13 @@ caller:
   ADC 1
   STSP
   
+  ; 5.2. Restore previous stack frame
+  LDFP
+  ADC 1
+  STSP
+  LDRF 1
+  STFP
+  
   RET
 
 300:
