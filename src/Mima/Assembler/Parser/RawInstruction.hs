@@ -27,8 +27,6 @@ parseByLiteral = foldl (<|>) empty . map (\(a, b) -> b <$ C.string' a)
 smallOpcode' :: Parser SmallOpcode
 smallOpcode' = parseByLiteral
   [ ( "LDC",  LDC)
-  , ("LDVR", LDVR) -- Needs to be before LDV
-  , ("STVR", STVR) -- Needs to be before STV
   , ( "LDV",  LDV)
   , ( "STV",  STV)
   , ( "ADD",  ADD)
@@ -41,10 +39,16 @@ smallOpcode' = parseByLiteral
   , ("LDIV", LDIV)
   , ("STIV", STIV)
   , ("CALL", CALL)
+  , ( "ADC",  ADC)
   ]
 
 largeOpcode' :: Parser LargeOpcode
-largeOpcode' = parseByLiteral [( "ADC",  ADC)]
+largeOpcode' = parseByLiteral
+  [ ("STRS", STRS)
+  , ("LDRS", LDRS)
+  , ("STRF", STRF)
+  , ("LDRF", LDRF)
+  ]
 
 largeOptionalOpcode' :: Parser LargeOpcode
 largeOptionalOpcode' = parseByLiteral

@@ -122,8 +122,7 @@ doSmallOpcode STIV addr ms@MimaState{..} =
   let indirAddr = getLargeValue $ readAt addr msMemory
   in  ms{msMemory = writeAt indirAddr msACC msMemory}
 doSmallOpcode CALL addr ms@MimaState{..} = ms{msRA = msIAR, msIAR = addr}
-doSmallOpcode LDVR addr ms@MimaState{..} = ms{msACC = readAt (msSP + addr) msMemory}
-doSmallOpcode STVR addr ms@MimaState{..} = ms{msMemory = writeAt (msSP + addr) msACC msMemory}
+doSmallOpcode ADC  lv   ms@MimaState{..} = ms{msACC = msACC + signedLargeValueToWord lv}
 
 doLargeOpcode :: LargeOpcode -> SmallValue -> MimaState -> Either AbortReason MimaState
 doLargeOpcode HALT _  _                = Left Halted
@@ -136,7 +135,18 @@ doLargeOpcode LDSP _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msSP}
 doLargeOpcode STSP _  ms@MimaState{..} = pure ms{msSP  = getLargeValue msACC}
 doLargeOpcode LDFP _  ms@MimaState{..} = pure ms{msACC = largeValueToWord msFP}
 doLargeOpcode STFP _  ms@MimaState{..} = pure ms{msFP  = getLargeValue msACC}
-doLargeOpcode ADC  sv ms@MimaState{..} = pure ms{msACC = msACC + signedSmallValueToWord sv}
+doLargeOpcode LDRS sv ms@MimaState{..} =
+  let indirAddr = msSP + signedSmallValueToLargeValue sv
+  in  pure ms{msACC = readAt indirAddr msMemory}
+doLargeOpcode STRS sv ms@MimaState{..} =
+  let indirAddr = msSP + signedSmallValueToLargeValue sv
+  in  pure ms{msMemory = writeAt indirAddr msACC msMemory}
+doLargeOpcode LDRF sv ms@MimaState{..} =
+  let indirAddr = msFP + signedSmallValueToLargeValue sv
+  in  pure ms{msACC = readAt indirAddr msMemory}
+doLargeOpcode STRF sv ms@MimaState{..} =
+  let indirAddr = msFP + signedSmallValueToLargeValue sv
+  in  pure ms{msMemory = writeAt indirAddr msACC msMemory}
 
 run :: MimaState -> (MimaState, AbortReason, Integer)
 run ms = helper 0 ms

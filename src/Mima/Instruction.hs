@@ -15,7 +15,7 @@ import           Mima.Util
 import           Mima.Word
 
 data SmallOpcode = LDC | LDV | STV | ADD | AND | OR | XOR | EQL
-                 | JMP | JMN | LDIV | STIV | CALL | LDVR | STVR
+                 | JMP | JMN | LDIV | STIV | CALL | ADC
   deriving (Show, Eq, Ord)
 
 instance ToText SmallOpcode where
@@ -23,7 +23,7 @@ instance ToText SmallOpcode where
 
 allSmallOpcodes :: [SmallOpcode]
 allSmallOpcodes = [LDC, LDV, STV, ADD, AND, OR, XOR, EQL,
-                   JMP, JMN, LDIV, STIV, CALL, LDVR, STVR]
+                   JMP, JMN, LDIV, STIV, CALL, ADC]
 
 smallOpcodeNr :: SmallOpcode -> Opcode
 smallOpcodeNr LDC  =  0
@@ -39,21 +39,21 @@ smallOpcodeNr JMN  =  9
 smallOpcodeNr LDIV = 10
 smallOpcodeNr STIV = 11
 smallOpcodeNr CALL = 12
-smallOpcodeNr LDVR = 13
-smallOpcodeNr STVR = 14
+smallOpcodeNr ADC  = 13
 
 smallOpcodeMap :: Map.Map Opcode SmallOpcode
 smallOpcodeMap = Map.fromList [(smallOpcodeNr so, so) | so <- allSmallOpcodes]
 
-data LargeOpcode = HALT | NOT | RAR | RET | LDRA | STRA
-                 | LDSP | STSP | LDFP | STFP | ADC
+data LargeOpcode = HALT | NOT | RAR | RET | LDRA | STRA | LDSP | STSP
+                 | LDFP | STFP | LDRS | STRS | LDRF | STRF
   deriving (Show, Eq, Ord)
 
 instance ToText LargeOpcode where
   toText = T.pack . show
 
 allLargeOpcodes :: [LargeOpcode]
-allLargeOpcodes = [HALT, NOT, RAR, RET, LDRA, STRA, LDSP, STSP, LDFP, STFP, ADC]
+allLargeOpcodes = [HALT, NOT, RAR, RET, LDRA, STRA, LDSP, STSP,
+                   LDFP, STFP, LDRS, STRS, LDRF, STRF]
 
 largeOpcodeNr :: LargeOpcode -> Opcode
 largeOpcodeNr HALT =  0
@@ -66,7 +66,10 @@ largeOpcodeNr LDSP =  6
 largeOpcodeNr STSP =  7
 largeOpcodeNr LDFP =  8
 largeOpcodeNr STFP =  9
-largeOpcodeNr ADC  = 10
+largeOpcodeNr LDRS = 10
+largeOpcodeNr STRS = 11
+largeOpcodeNr LDRF = 12
+largeOpcodeNr STRF = 13
 
 largeOpcodeMap :: Map.Map Opcode LargeOpcode
 largeOpcodeMap = Map.fromList [(largeOpcodeNr lo, lo) | lo <- allLargeOpcodes]

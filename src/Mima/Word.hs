@@ -12,7 +12,8 @@ module Mima.Word
   , wordToBytes
   , boolToWord
   , largeValueToWord
-  , signedSmallValueToWord
+  , signedLargeValueToWord
+  , signedSmallValueToLargeValue
   , wordFromSmallOpcode
   , wordFromLargeOpcode
   -- ** 'MimaWord' properties
@@ -56,9 +57,14 @@ boolToWord True = complement zeroBits
 largeValueToWord :: LargeValue -> MimaWord
 largeValueToWord = fromIntegral
 
-signedSmallValueToWord :: SmallValue -> MimaWord
-signedSmallValueToWord sv
-  | topBit sv = 0xFF0000 .|. fromIntegral sv
+signedLargeValueToWord :: LargeValue -> MimaWord
+signedLargeValueToWord lv
+  | topBit lv = 0xF00000 .|. fromIntegral lv
+  | otherwise = fromIntegral lv
+
+signedSmallValueToLargeValue :: SmallValue -> LargeValue
+signedSmallValueToLargeValue sv
+  | topBit sv = 0xF0000 .|. fromIntegral sv
   | otherwise = fromIntegral sv
 
 wordFromSmallOpcode :: Opcode -> LargeValue -> MimaWord
