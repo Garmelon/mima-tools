@@ -103,7 +103,8 @@ stateFromRegisters reg mem =
 
 parseState :: Parser (MimaState, Map.Map T.Text MimaAddress)
 parseState = do
-  space
+  lexeme $ pure ()
+  void $ many newlines
   unresolvedRegisters <- parseRegisters
   (labels, unresolvedRawInstructions) <- parseInstructions
   registers <- resolveRegisters labels unresolvedRegisters
