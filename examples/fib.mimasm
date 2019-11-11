@@ -25,32 +25,32 @@ main:
   STSP
   
   main-loop:
-  ; while (current-number != max-number)
+  ; while (current-number != max-number) {
   LDV current-number
   EQL max-number
-  JMN main-halt
+  JMN main-loop-end
   
-  ; *ptr = fib(current-number)
+  ; *ptr = fib(current-number);
   LDV current-number
   STRS 1
   CALL fib
   LDV tmp1
   STIV ptr
   
-  ; current-number++
+  ; current-number++;
   LDV current-number
   ADC 1
   STV current-number
 
-  ; ptr++
+  ; ptr++;
   LDV ptr
   ADC 1
   STV ptr
   
-  ; Aaand loop
+  ; }
   JMP main-loop
-  
-  main-halt:
+  main-loop-end:
+
   HALT
 
 ; This function recursively calculates the n-th fibonacci number. It
