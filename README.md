@@ -236,7 +236,9 @@ is ignored. A line can either be empty or have the following format:
 `<start address>-<end address>:<flags>`
 
 * `<start address>` and `<end address>` are case-insensitive,
-  hexadecimal, 5 digit numbers. `<end address>` is inclusive.
+  hexadecimal, 5 digit numbers. The start and end addresses are
+  inclusive. If the end address is smaller than the start address,
+  their roles are swapped.
 * `<flags>` are multiple characters (at least one).
 
 The format `<address>:<flags>` is also allowed and equivalent to
@@ -245,8 +247,9 @@ The format `<address>:<flags>` is also allowed and equivalent to
 Here are some examples of valid lines:
 
 * `12345-54321: abc`
-* `54d3f:x`
-* `  aa5b2 - aa67c  : x    y z   `
+* `00005-00004: x`
+* `54d3f:y`
+* `  aa5b2 - aa67c  : x    y  z  `
 
 And here are some examples of invalid lines:
 
@@ -268,13 +271,14 @@ is ignored. A line can either be empty or have the following format:
 `<address>:<label name>[ <label name>]*`
 
 * `<address>` is a case-insensitive, hexadecimal, 5 digit number.
-* `<label name>` is the name of a label. It conforms to the regex `[a-zA-Z][a-zA-Z0-9_-]*`.
+* `<label name>` is the name of a label. It conforms to the regex
+  `[a-zA-Z][a-zA-Z0-9_-]*`.
 
 Here are some examples of valid lines:
 
 * `0a68c: some-label`
 * `20980: label other-label third_label label_nr_4`
-* `  0a68c   :   label    other-label    `
+* ` 0a68c : label other-label `
 
 And here are some examples of invalid lines:
 
