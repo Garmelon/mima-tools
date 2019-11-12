@@ -125,7 +125,7 @@ fib:
   STSP
   LDRF 1
   STFP
-  ; Store the result of the call on the stacl
+  ; Store the result of the call on the stack
   LDV tmp1
   STRF -3
 
@@ -152,7 +152,7 @@ fib:
   STSP
   LDRF 1
   STFP
-  ; Store the result of the call on the stacl
+  ; Store the result of the call on the stack
   LDV tmp1
   STRF -4
 
