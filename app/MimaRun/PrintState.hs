@@ -113,7 +113,7 @@ printMemoryLocationLn addr word = do
 
 printMemoryLn :: Bool -> MimaMemory -> IO ()
 printMemoryLn sparse mem = do
-  let addresses = if sparse then sparseAddressRange mem else addressRange mem
+  let addresses = if sparse then sparseUsedAddresses mem else usedAddresses mem
   forM_ addresses $ \addr -> do
     printMemoryLocationLn addr (readAt addr mem)
 

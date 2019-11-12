@@ -4,6 +4,7 @@ import           Control.Monad
 import qualified Data.Text.IO as T
 import           Options.Applicative
 
+import           Mima.Flag
 import           Mima.Load
 import           Mima.State
 import           Mima.Util
@@ -59,12 +60,12 @@ runMima settings s =
   case steps settings of
     Nothing -> do
       putStrLn "Running until HALT or execution exception..."
-      let (s', e, x) = run s
+      let (s', e, x) = run impotentChecks s
       putStrLn $ "Ran for " ++ show x ++ " steps"
       T.putStrLn $ toText e
       pure s'
     Just n  -> do
-      let (s', me, x) = runN n s
+      let (s', me, x) = runN impotentChecks n s
       putStrLn $ "Ran for " ++ show x ++ " steps"
       case me of
         Nothing -> putStrLn "Encountered no exception"
