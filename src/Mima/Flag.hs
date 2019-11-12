@@ -20,7 +20,7 @@ module Mima.Flag
   , Flags(..)
   , rawFlags
   , flagChecks
-  , impotentChecks
+  , noFlags
   ) where
 
 import           Data.List
@@ -127,9 +127,9 @@ flagChecks m =
         }
   in  conditions <*> (getAddressSpec <$> rawFlags)
 
--- | Flag checks that should not alter the behaviour of the MiMa.
-impotentChecks :: Flags (MimaAddress -> Bool)
-impotentChecks = Flags
+-- | These checks should behave as if no flags were set at all.
+noFlags :: Flags (MimaAddress -> Bool)
+noFlags = Flags
   { flagBreakpoint = const False
   , flagExecutable = const True
   , flagReadOnly   = const False

@@ -60,12 +60,12 @@ runMima settings s =
   case steps settings of
     Nothing -> do
       putStrLn "Running until HALT or execution exception..."
-      let (s', e, x) = run impotentChecks s
+      let (s', e, x) = run noFlags s
       putStrLn $ "Ran for " ++ show x ++ " steps"
       T.putStrLn $ toText e
       pure s'
     Just n  -> do
-      let (s', me, x) = runN impotentChecks n s
+      let (s', me, x) = runN noFlags n s
       putStrLn $ "Ran for " ++ show x ++ " steps"
       case me of
         Nothing -> putStrLn "Encountered no exception"
