@@ -84,10 +84,10 @@ data AbortReason
 
 instance ToText AbortReason where
   toText Halted                 = "Halted"
-  toText (InvalidInstruction t) = "Invalid instruction: " <> t
-  toText InvalidNextIarAddress  = "Can't increment IAR: Invalid next address"
-  toText AddressNotExecutable   = "Address is not flagged as excutable"
-  toText AddressReadOnly        = "Address is flagged as read-only"
+  toText (InvalidInstruction t) = "Exception: Invalid instruction: " <> t
+  toText InvalidNextIarAddress  = "Exception: Can't increment IAR: Invalid next address"
+  toText AddressNotExecutable   = "Exception: Address is not flagged as excutable"
+  toText AddressReadOnly        = "Exception: Address is flagged as read-only"
 
 {- A fancy monad that helps with stepping the MimaState -}
 
