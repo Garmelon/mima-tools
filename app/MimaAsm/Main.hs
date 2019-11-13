@@ -1,10 +1,11 @@
 module Main where
 
-import           Options.Applicative
+import Control.Monad.Trans.Class
+import Options.Applicative
 
-import           Mima.Assembler.Parser
-import           Mima.IO
-import           Mima.Load
+import Mima.Assembler.Parser
+import Mima.IO
+import Mima.Load
 
 data Settings = Settings
   { infile     :: String
@@ -28,14 +29,12 @@ opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
 
 main :: IO ()
-main = do
-  settings <- execParser opts
+main = doRun $ do
+  settings <- lift $ execParser opts
 
-  putStrLn $ "Loading assembly file at " ++ infile settings
-  asm <- parseFile parseState (infile settings)
-  case asm of
-    Nothing -> pure ()
-    Just (state, _) -> do
-      putStrLn "Parsing successful"
-      putStrLn $ "Writing result to " ++ outfile settings
-      saveStateToFile (outfile settings) state
+  lift $ putStrLn $ "Loading assembly file at " ++ infile settings
+  (state, _) <- parseFile parseState (infile settings)
+  lift $ putStrLn "Parsing successful"
+
+  lift $ putStrLn $ "Writing result to " ++ outfile settings
+  saveStateToFile (outfile settings) state

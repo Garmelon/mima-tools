@@ -7,11 +7,13 @@ module Mima.Load
 
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.Trans.Class
 import           Data.Binary
 import qualified Data.ByteString.Lazy as BS
 
-import           Mima.Word
+import           Mima.IO
 import           Mima.State
+import           Mima.Word
 
 -- To prevent orphan instances and keep the compiler happy
 newtype LD t = LD { unLD :: t }
@@ -50,14 +52,14 @@ instance Binary (LD MimaState) where
     mem <- unLD <$> get
     pure $ LD $ MimaState iar acc ra sp fp mem
 
-loadStateFromFile :: FilePath -> IO (Either String MimaState)
+loadStateFromFile :: FilePath -> Run MimaState
 loadStateFromFile path = do
-  bs <- BS.readFile path
-  pure $ case decodeOrFail bs of
-    Left  (  _, _, e) -> Left e
+  bs <- lift $ BS.readFile path
+  case decodeOrFail bs of
+    Left  (  _, _, e) -> failWith e
     Right (bs', _, ldms)
-      | BS.null bs' -> Right $ unLD ldms
-      | otherwise   -> Left "Input was not consumed fully"
+      | BS.null bs' -> pure $ unLD ldms
+      | otherwise   -> failWith "Input was not consumed fully"
 
-saveStateToFile :: FilePath -> MimaState -> IO ()
-saveStateToFile path = BS.writeFile path . encode . LD
+saveStateToFile :: FilePath -> MimaState -> Run ()
+saveStateToFile path = lift . BS.writeFile path . encode . LD
