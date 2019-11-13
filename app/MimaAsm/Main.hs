@@ -1,10 +1,9 @@
 module Main where
 
-import qualified Data.Text.IO as T
 import           Options.Applicative
-import           Text.Megaparsec
 
 import           Mima.Assembler.Parser
+import           Mima.IO
 import           Mima.Load
 
 data Settings = Settings
@@ -33,13 +32,10 @@ main = do
   settings <- execParser opts
 
   putStrLn $ "Loading assembly file at " ++ infile settings
-  asm <- T.readFile (infile settings)
-
-  putStrLn "Parsing assembly"
-  let parsed = parse parseState (infile settings) asm
-  case parsed of
-    Left errorBundle      -> putStrLn $ errorBundlePretty errorBundle
-    Right (state, _) -> do
+  asm <- parseFile parseState (infile settings)
+  case asm of
+    Nothing -> pure ()
+    Just (state, _) -> do
       putStrLn "Parsing successful"
       putStrLn $ "Writing result to " ++ outfile settings
       saveStateToFile (outfile settings) state
