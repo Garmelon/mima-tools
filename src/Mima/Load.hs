@@ -8,6 +8,7 @@ module Mima.Load
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
 import           Data.Binary
 import qualified Data.ByteString.Lazy as BS
 
@@ -56,10 +57,10 @@ loadStateFromFile :: FilePath -> Run MimaState
 loadStateFromFile path = do
   bs <- lift $ BS.readFile path
   case decodeOrFail bs of
-    Left  (  _, _, e) -> failWith e
+    Left  (  _, _, e) -> throwE e
     Right (bs', _, ldms)
       | BS.null bs' -> pure $ unLD ldms
-      | otherwise   -> failWith "Input was not consumed fully"
+      | otherwise   -> throwE "Input was not consumed fully"
 
 saveStateToFile :: FilePath -> MimaState -> Run ()
 saveStateToFile path = lift . BS.writeFile path . encode . LD

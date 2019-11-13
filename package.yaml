@@ -24,6 +24,7 @@ dependencies:
 - binary
 - bytestring
 - containers
+- filepath
 - megaparsec
 - optparse-applicative
 - text

@@ -29,7 +29,7 @@ opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
 
 main :: IO ()
-main = doRun $ do
+main = doRun_ $ do
   settings <- lift $ execParser opts
 
   lift $ putStrLn $ "Loading assembly file at " ++ infile settings
