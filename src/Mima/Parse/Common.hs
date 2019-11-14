@@ -14,6 +14,14 @@ module Mima.Parse.Common
   , asLargeValue
   , asSmallValue
   , fixedWidthHexAddress
+  -- * Nice error messages
+  , defaultPosState
+  , WeedError
+  , WeedErrorBundle
+  -- ** Remembering an element's offset
+  , WithOffset
+  , errorAt
+  , errorAt'
   ) where
 
 import           Data.Char
@@ -119,3 +127,26 @@ fixedWidthHexAddress :: Parser MimaAddress
 fixedWidthHexAddress = label "fixed-width hexadecimal address"
                      $ asLargeValue
                      $ fixedWidthHex 5
+
+{- Nice error messages -}
+
+defaultPosState :: FilePath -> T.Text -> PosState T.Text
+defaultPosState filename input = PosState
+  { pstateInput      = input
+  , pstateOffset     = 0
+  , pstateSourcePos  = initialPos filename
+  , pstateTabWidth   = defaultTabWidth
+  , pstateLinePrefix = ""
+  }
+
+type WeedError = ParseError T.Text Void
+type WeedErrorBundle = ParseErrorBundle T.Text Void
+
+data WithOffset a = WithOffset Int a
+  deriving (Show)
+
+errorAt :: WithOffset a -> String -> WeedError
+errorAt wo errorMsg = errorAt' wo [errorMsg]
+
+errorAt' :: WithOffset a -> [String] -> WeedError
+errorAt' (WithOffset o _) = FancyError o . Set.fromList . map ErrorFail
