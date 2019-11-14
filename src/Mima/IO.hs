@@ -16,7 +16,7 @@ import qualified Data.Text.IO as T
 import           System.IO.Error
 import           Text.Megaparsec
 
-import           Mima.Parser.Common
+import           Mima.Parse.Common
 
 type Run a = ExceptT String IO a
 

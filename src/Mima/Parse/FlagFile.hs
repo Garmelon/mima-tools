@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Mima.Parser.FlagFile
+module Mima.Parse.FlagFile
   ( parseFlagFile
   ) where
 
@@ -11,8 +11,8 @@ import qualified Data.Set as Set
 import           Text.Megaparsec
 
 import           Mima.Flag
-import           Mima.Parser.Common
-import           Mima.Parser.Lexeme
+import           Mima.Parse.Common
+import           Mima.Parse.Lexeme
 import           Mima.Word
 
 lAddress :: Parser MimaAddress

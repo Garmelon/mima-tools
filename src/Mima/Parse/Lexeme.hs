@@ -1,4 +1,4 @@
-module Mima.Parser.Lexeme
+module Mima.Parse.Lexeme
   ( space
   , lexeme
   , symbol
@@ -12,7 +12,7 @@ import           Text.Megaparsec
 import qualified Text.Megaparsec.Char as C
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import           Mima.Parser.Common
+import           Mima.Parse.Common
 
 space :: Parser ()
 space = L.space (void whitespace) empty empty

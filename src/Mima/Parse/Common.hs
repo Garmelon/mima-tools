@@ -1,4 +1,4 @@
-module Mima.Parser.Common
+module Mima.Parse.Common
   ( Parser
   -- * Basic parsers
   , whitespace
@@ -17,10 +17,10 @@ module Mima.Parser.Common
   ) where
 
 import           Data.Char
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Data.Void
 import           Text.Megaparsec
-import qualified Data.Set as Set
 
 import           Mima.Word
 

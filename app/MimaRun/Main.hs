@@ -9,7 +9,7 @@ import           System.FilePath
 import           Mima.Flag
 import           Mima.IO
 import           Mima.Load
-import           Mima.Parser.FlagFile
+import           Mima.Parse.FlagFile
 import           Mima.State
 import           Mima.Util
 import           Mima.Word
