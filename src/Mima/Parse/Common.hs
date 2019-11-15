@@ -1,7 +1,11 @@
 module Mima.Parse.Common
   ( Parser
+  -- * Character specifications
+  , isConnecting
+  , isWhitespace
   -- * Basic parsers
   , whitespace
+  , labelName
   -- ** Number literals
   , binDigit
   , decDigit
@@ -14,14 +18,6 @@ module Mima.Parse.Common
   , asLargeValue
   , asSmallValue
   , fixedWidthHexAddress
-  -- * Nice error messages
-  , defaultPosState
-  , WeedError
-  , WeedErrorBundle
-  -- ** Remembering an element's offset
-  , WithOffset
-  , errorAt
-  , errorAt'
   ) where
 
 import           Data.Char
@@ -34,11 +30,27 @@ import           Mima.Word
 
 type Parser = Parsec Void T.Text
 
+{- Character specifications -}
+
+isConnecting :: Char -> Bool
+isConnecting '_' = True
+isConnecting '-' = True
+isConnecting _   = False
+
+isWhitespace :: Char -> Bool
+isWhitespace '\n' = False
+isWhitespace c    = isSpace c
+
+{- Basic parsers -}
+
 whitespace :: Parser Char
 whitespace = label "whitespace" $ satisfy isWhitespace
-  where
-    isWhitespace '\n' = False
-    isWhitespace c    = isSpace c
+
+labelName :: Parser T.Text
+labelName = label "label" $ do
+  t <- satisfy isAlpha
+  ts <- takeWhileP Nothing (\c -> isAlphaNum c || isConnecting c)
+  pure $ T.singleton t <> ts
 
 binDigit :: (Num a) => Parser a
 binDigit = label "binary digit" $ token helper Set.empty
@@ -127,26 +139,3 @@ fixedWidthHexAddress :: Parser MimaAddress
 fixedWidthHexAddress = label "fixed-width hexadecimal address"
                      $ asLargeValue
                      $ fixedWidthHex 5
-
-{- Nice error messages -}
-
-defaultPosState :: FilePath -> T.Text -> PosState T.Text
-defaultPosState filename input = PosState
-  { pstateInput      = input
-  , pstateOffset     = 0
-  , pstateSourcePos  = initialPos filename
-  , pstateTabWidth   = defaultTabWidth
-  , pstateLinePrefix = ""
-  }
-
-type WeedError = ParseError T.Text Void
-type WeedErrorBundle = ParseErrorBundle T.Text Void
-
-data WithOffset a = WithOffset Int a
-  deriving (Show)
-
-errorAt :: WithOffset a -> String -> WeedError
-errorAt wo errorMsg = errorAt' wo [errorMsg]
-
-errorAt' :: WithOffset a -> [String] -> WeedError
-errorAt' (WithOffset o _) = FancyError o . Set.fromList . map ErrorFail

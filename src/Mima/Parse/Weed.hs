@@ -5,11 +5,28 @@ module Mima.Parse.Weed
   , runWeed
   , critical
   , harmless
+  -- * Nice error messages
+  , defaultPosState
+  , WeedError
+  , WeedErrorBundle
+  -- ** Remembering an element's offset
+  , WithOffset(..)
+  , withOffset
+  , errorAt
+  , errorAt'
+  , runWeedBundle
   ) where
 
 import qualified Data.List.NonEmpty as NE
 import           Data.Monoid
+import qualified Data.Set as Set
+import qualified Data.Text as T
+import           Data.Void
+import           Text.Megaparsec
 
+import           Mima.Parse.Common
+
+-- The star of the show
 data Weed e a = Weed (Endo [e]) (Either e a)
 
 instance Functor (Weed e) where
@@ -45,3 +62,43 @@ critical e = Weed mempty (Left e)
 
 harmless :: e -> Weed e ()
 harmless e = Weed (Endo (e:)) (Right ())
+
+{- Nice error messages -}
+
+defaultPosState :: FilePath -> T.Text -> PosState T.Text
+defaultPosState filename input = PosState
+  { pstateInput      = input
+  , pstateOffset     = 0
+  , pstateSourcePos  = initialPos filename
+  , pstateTabWidth   = defaultTabWidth
+  , pstateLinePrefix = ""
+  }
+
+type WeedError = ParseError T.Text Void
+type WeedErrorBundle = ParseErrorBundle T.Text Void
+
+data WithOffset a = WithOffset
+  { woOffset :: Int
+  , woValue  :: a
+  }
+  deriving (Show)
+
+instance (Eq a) => Eq (WithOffset a) where
+  a == b = woValue a == woValue b
+
+instance (Ord a) => Ord (WithOffset a) where
+  compare a b = compare (woValue a) (woValue b)
+
+withOffset :: Parser a -> Parser (WithOffset a)
+withOffset p = WithOffset <$> getOffset <*> p
+
+errorAt :: WithOffset a -> String -> WeedError
+errorAt wo errorMsg = errorAt' wo [errorMsg]
+
+errorAt' :: WithOffset a -> [String] -> WeedError
+errorAt' wo = FancyError (woOffset wo) . Set.fromList . map ErrorFail
+
+runWeedBundle :: FilePath -> T.Text -> Weed WeedError a -> Either WeedErrorBundle a
+runWeedBundle filename input w = case runWeed w of
+  Left errors -> Left $ ParseErrorBundle errors $ defaultPosState filename input
+  Right a     -> Right a
