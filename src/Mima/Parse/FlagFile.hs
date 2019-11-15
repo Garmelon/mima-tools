@@ -31,10 +31,11 @@ lFlags :: Parser (Set.Set Flag)
 lFlags = Set.unions <$> some lFlag
 
 lAddressRange :: Parser AddressRange
-lAddressRange = try twoAddresses <|> oneAddress
-  where
-    twoAddresses = range <$> lAddress <*> (symbol "-" *> lAddress)
-    oneAddress = (\a -> range a a) <$> lAddress -- More fun to read than the do syntax :)
+lAddressRange = do
+  firstAddress <- lAddress
+  secondAddress <- (symbol "-" *> lAddress) <|> pure firstAddress
+  void $ symbol ":"
+  pure $ range firstAddress secondAddress
 
 lLine :: Parser (AddressRange, Set.Set Flag)
 lLine = do
