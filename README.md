@@ -26,21 +26,28 @@ This program can load and run `.mima` files.
 
 ```
 $ mima-run --help
-Usage: mima-run INFILE [-n|--steps N] [-d|--dump OUTFILE] [-q|--quiet]
-                [-s|--sparse] [-r|--norun]
+Usage: mima-run INFILE [-o|--out OUTFILE] [--nodiscover] [-f|--flags FLAGFILE]
+                [-s|--symbols SYMBOLFILE] [--steps N] [--norun] [-q|--quiet]
+                [--sparse]
 
 Available options:
   -h,--help                Show this help text
-  INFILE                   The binary memory dump to load and execute
-  -n,--steps N             How many instructions to execute (if not specified,
+  INFILE                   The memory dump to load and execute
+  -o,--out OUTFILE         If specified, write the memory dump to this file
+                           after execution is finished
+  --nodiscover             Disable the automatic loading of the .mima-flags and
+                           .mima-symbols files
+  -f,--flags FLAGFILE      A file containing extension memory flags, specified
+                           in the .mima-flags format
+  -s,--symbols SYMBOLFILE  A file containing label names and addresses,
+                           specified in the .mima-symbols format
+  --steps N                How many instructions to execute (if not specified,
                            runs until HALT or execution exception)
-  -d,--dump OUTFILE        If specified, write the MiMa's binary memory dump to
-                           this file after execution is finished
-  -q,--quiet               Don't print the memory dump
-  -s,--sparse              Don't print memory locations containing only 0x000000
-                           in the memory dump
-  -r,--norun               Don't run the MiMa. Use the initial state for all
+  --norun                  Don't run the MiMa. Use the initial state for all
                            further actions. Roughly equivalent to -n 0
+  -q,--quiet               Don't print the memory dump
+  --sparse                 Don't print memory locations containing only 0x000000
+                           in the memory dump
 ```
 
 ### mima-asm
