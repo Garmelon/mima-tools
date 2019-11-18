@@ -31,7 +31,6 @@ lAddressRange :: Parser AddressRange
 lAddressRange = do
   firstAddress <- lAddress
   secondAddress <- (symbol "-" *> lAddress) <|> pure firstAddress
-  void $ symbol ":"
   pure $ range firstAddress secondAddress
 
 lLine :: Parser (AddressRange, Set.Set Char)
