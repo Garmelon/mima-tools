@@ -11,6 +11,9 @@ import qualified Data.Text as T
 import           Mima.Format.Common
 import           Mima.Word
 
+fAddress :: MimaAddress -> T.Text
+fAddress = fixWidthHex 5 . toHex
+
 type LabelName = T.Text
 
 combineByAddress :: Map.Map LabelName MimaAddress -> Map.Map MimaAddress (Set.Set LabelName)
@@ -24,7 +27,7 @@ fLabels :: Set.Set LabelName -> T.Text
 fLabels = T.intercalate " " . Set.toAscList
 
 fLine :: (MimaAddress, Set.Set LabelName) -> T.Text
-fLine (a, s) = fixedWidthHexAddress a <> ": " <> fLabels s <> "\n"
+fLine (a, s) = fAddress a <> ": " <> fLabels s <> "\n"
 
 formatSymbolFile :: Map.Map LabelName MimaAddress -> T.Text
 formatSymbolFile = mconcat . map fLine . Map.assocs . combineByAddress

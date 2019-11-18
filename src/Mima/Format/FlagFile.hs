@@ -10,14 +10,18 @@ import qualified Data.Text as T
 
 import           Mima.Flag
 import           Mima.Format.Common
+import           Mima.Word
+
+fAddress :: MimaAddress -> T.Text
+fAddress = fixWidthHex 5 . toHex
 
 fFlagSet :: Set.Set Char -> T.Text
 fFlagSet = T.pack . Set.toAscList
 
 fRange :: AddressRange -> T.Text
 fRange r
-  | lower == upper = fixedWidthHexAddress lower
-  | otherwise      = fixedWidthHexAddress lower <> "-" <> fixedWidthHexAddress upper
+  | lower == upper = fAddress lower
+  | otherwise      = fAddress lower <> "-" <> fAddress upper
   where
     lower = lowerAddress r
     upper = upperAddress r
