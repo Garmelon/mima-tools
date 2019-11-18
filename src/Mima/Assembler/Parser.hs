@@ -2,6 +2,7 @@
 
 module Mima.Assembler.Parser
   ( parseState
+  , readState
   ) where
 
 import           Control.Monad
@@ -18,6 +19,7 @@ import           Mima.Assembler.Parser.Instruction
 import           Mima.Assembler.Parser.Label
 import           Mima.Assembler.Parser.RawInstruction
 import           Mima.Assembler.Parser.Register
+import           Mima.Parse.Weed
 import           Mima.State
 import           Mima.Word
 
@@ -112,3 +114,6 @@ parseState = do
   let mem = mapToMemory $ Map.map rawInstructionToWord rawInstructions
       labelNames = Map.fromList $ map (\(k, v) -> (lName k, v)) $ Map.toList labels
   pure (stateFromRegisters registers mem, labelNames)
+
+readState :: FilePath -> T.Text -> Either WeedErrorBundle (MimaState, Map.Map T.Text MimaAddress)
+readState filename input = parse parseState filename input

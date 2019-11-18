@@ -94,7 +94,7 @@ runMima settings s f =
       pure s'
 
 loadFlagFile :: FilePath -> Run (Flags (MimaAddress -> Bool))
-loadFlagFile filename = flagChecks <$> parseFile parseFlagFile filename
+loadFlagFile filename = (interpretFlagSpec . getFlagSpec) <$> loadFile readFlagFile filename
 
 loadFlags :: Settings -> Run (Flags (MimaAddress -> Bool))
 loadFlags settings = do

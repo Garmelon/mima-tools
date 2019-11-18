@@ -3,7 +3,7 @@
 module Mima.Parse.SymbolFile
   ( parseSymbolFile
   , weedSymbolFile
-  , loadSymbolFile
+  , readSymbolFile
   ) where
 
 import           Control.Monad
@@ -68,7 +68,7 @@ weedSymbolFile m =
   let pairs = [(l, a) | (a, ls) <- Map.assocs m, l <- ls]
   in  wBuildMap pairs
 
-loadSymbolFile :: FilePath -> T.Text -> Either WeedErrorBundle (Map.Map LabelName MimaAddress)
-loadSymbolFile filename input = do
+readSymbolFile :: FilePath -> T.Text -> Either WeedErrorBundle (Map.Map LabelName MimaAddress)
+readSymbolFile filename input = do
   unweeded <- parse parseSymbolFile filename input
   runWeedBundle filename input $ weedSymbolFile unweeded

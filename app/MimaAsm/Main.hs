@@ -33,7 +33,7 @@ main = doRun_ $ do
   settings <- lift $ execParser opts
 
   lift $ putStrLn $ "Loading assembly file at " ++ infile settings
-  (state, _) <- parseFile parseState (infile settings)
+  (state, _) <- loadFile readState (infile settings)
   lift $ putStrLn "Parsing successful"
 
   lift $ putStrLn $ "Writing result to " ++ outfile settings

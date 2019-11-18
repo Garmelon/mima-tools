@@ -6,7 +6,7 @@ module Mima.IO
   , doRun_
   , tryRun
   , readTextFile
-  , parseFile
+  , loadFile
   ) where
 
 import           Control.Monad.Trans.Class
@@ -16,7 +16,7 @@ import qualified Data.Text.IO as T
 import           System.IO.Error
 import           Text.Megaparsec
 
-import           Mima.Parse.Common
+import           Mima.Parse.Weed
 
 type Run a = ExceptT String IO a
 
@@ -49,9 +49,9 @@ readTextFile filepath = do
       then pure $ Left $ "Can't load file " ++ filepath ++ ": " ++ ioeGetErrorString e
       else ioError e -- This error does not concern us
 
-parseFile :: Parser a -> FilePath -> Run a
-parseFile parser filepath = do
+loadFile :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> FilePath -> Run a
+loadFile f filepath = do
   content <- readTextFile filepath
-  case parse parser filepath content of
-    Right a           -> pure a
+  case f filepath content of
     Left errorBundle  -> throwE $ errorBundlePretty errorBundle
+    Right a           -> pure a

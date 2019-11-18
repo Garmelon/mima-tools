@@ -15,11 +15,13 @@ module Mima.Flag
   , specNull
   , specContains
   , Flag(..)
-  , allFlags
   , flagChar
   , Flags(..)
   , rawFlags
-  , flagChecks
+  , AllFlags
+  , FlagSpec
+  , getFlagSpec
+  , interpretFlagSpec
   , noFlags
   ) where
 
@@ -78,9 +80,6 @@ specContains as addr = any (`rangeContains` addr) $ specToRanges as
 data Flag = Breakpoint | Executable | ReadOnly
   deriving (Show, Eq, Ord)
 
-allFlags :: [Flag]
-allFlags = [Breakpoint, Executable, ReadOnly]
-
 flagChar :: Flag -> Char
 flagChar Breakpoint = 'b'
 flagChar Executable = 'e'
@@ -114,18 +113,26 @@ rawFlags = Flags
   , flagReadOnly   = ReadOnly
   }
 
-flagChecks :: Map.Map AddressRange (Set.Set Flag) -> Flags (MimaAddress -> Bool)
-flagChecks m =
-  let getAddressSpec :: Flag -> AddressSpec
-      getAddressSpec f = rangesToSpec $ map fst $ filter (Set.member f . snd) $ Map.assocs m
+type AllFlags = Map.Map AddressRange (Set.Set Char)
+type FlagSpec = Flags AddressSpec
 
-      conditions :: Flags (AddressSpec -> MimaAddress -> Bool)
+getFlagSpec :: AllFlags -> FlagSpec
+getFlagSpec af =
+  let isInSet :: Flag -> Set.Set Char -> Bool
+      isInSet f s = flagChar f `Set.member` s
+      getAddressSpec :: Flag -> AddressSpec
+      getAddressSpec f = rangesToSpec $ map fst $ filter (isInSet f . snd) $ Map.assocs af
+  in  pure getAddressSpec <*> rawFlags
+
+interpretFlagSpec :: FlagSpec -> Flags (MimaAddress -> Bool)
+interpretFlagSpec spec =
+  let conditions :: Flags (AddressSpec -> MimaAddress -> Bool)
       conditions = Flags
         { flagBreakpoint = specContains
         , flagExecutable = \as -> if specNull as then const True else specContains as
         , flagReadOnly = specContains
         }
-  in  conditions <*> (getAddressSpec <$> rawFlags)
+  in  conditions <*>  spec
 
 -- | These checks should behave as if no flags were set at all.
 noFlags :: Flags (MimaAddress -> Bool)

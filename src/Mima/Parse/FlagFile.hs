@@ -2,32 +2,29 @@
 
 module Mima.Parse.FlagFile
   ( parseFlagFile
+  , readFlagFile
   ) where
 
 import           Control.Monad
 import           Data.Char
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import           Text.Megaparsec
 
 import           Mima.Flag
 import           Mima.Parse.Common
 import           Mima.Parse.Lexeme
+import           Mima.Parse.Weed
 import           Mima.Word
 
 lAddress :: Parser MimaAddress
 lAddress = lexeme fixedWidthHexAddress
 
-lFlag :: Parser (Set.Set Flag)
-lFlag =
-  -- Not sure if there's a better way than writing the fold
-  -- explicitly. Mconcat doesn't seem to do the trick.
-  let knownFlags = foldl (<|>) empty
-                 $ map (\f -> Set.singleton f <$ single (flagChar f)) allFlags
-      otherFlags = label "alphanumeric character" $ Set.empty <$ satisfy isAlphaNum
-  in lexeme $ knownFlags <|> otherFlags
+lFlag :: Parser (Set.Set Char)
+lFlag = lexeme $ label "alphanumeric character" $ Set.singleton <$> satisfy isAlphaNum
 
-lFlags :: Parser (Set.Set Flag)
+lFlags :: Parser (Set.Set Char)
 lFlags = Set.unions <$> some lFlag
 
 lAddressRange :: Parser AddressRange
@@ -37,7 +34,7 @@ lAddressRange = do
   void $ symbol ":"
   pure $ range firstAddress secondAddress
 
-lLine :: Parser (AddressRange, Set.Set Flag)
+lLine :: Parser (AddressRange, Set.Set Char)
 lLine = do
   a <- lAddressRange
   void $ symbol ":"
@@ -45,5 +42,8 @@ lLine = do
   hidden lNewlines
   pure (a, f)
 
-parseFlagFile :: Parser (Map.Map AddressRange (Set.Set Flag))
+parseFlagFile :: Parser AllFlags
 parseFlagFile = space *> many lNewline *> (Map.fromList <$> many lLine) <* hidden eof
+
+readFlagFile :: FilePath -> T.Text -> Either WeedErrorBundle AllFlags
+readFlagFile filename input = parse parseFlagFile filename input
