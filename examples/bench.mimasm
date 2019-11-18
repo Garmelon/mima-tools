@@ -1,0 +1,185 @@
+; The same as fib.mimasm, but with an increased number of fibonacci numbers to
+; calculate. This file takes 11877318 steps to execute.
+
+IAR = main
+SP = 0xfffff
+FP = 0xfffff
+
+zero: LIT 0 ; Constant value for use with EQL
+one:  LIT 1 ; Constant value for use with EQL
+
+tmp1: LIT 0
+
+; Variables for main
+max-number:     LIT 24
+current-number: LIT 0
+ptr:            LDC number-array
+
+main:
+  ; Calls fib for every n from current-number to max-number and stores
+  ; the resulting numbers in memory, starting at memory location 300
+  ; (at label number-array).
+
+  ; Since we're the main program, we don't need to do all the special
+  ; stack initialization that functions must do. We can just use the
+  ; empty stack as shared stack frame.
+  LDSP
+  ADC -1
+  STSP
+  
+  main-loop:
+  ; while (current-number != max-number) {
+  LDV current-number
+  EQL max-number
+  JMN main-loop-end
+  
+  ; *ptr = fib(current-number);
+  LDV current-number
+  STRS 1
+  CALL fib
+  LDV tmp1
+  STIV ptr
+  
+  ; current-number++;
+  LDV current-number
+  ADC 1
+  STV current-number
+
+  ; ptr++;
+  LDV ptr
+  ADC 1
+  STV ptr
+  
+  ; }
+  JMP main-loop
+  main-loop-end:
+
+  HALT
+
+; This function recursively calculates the n-th fibonacci number. It
+; accepts one argument (n) passed via a shared stack frame, and
+; returns its only result via the tmp1 variable.
+fib:
+  ;; Initialization
+  ; Create a new stack frame of size 5 with the following layout:
+  ; FP offset | Value
+  ;         0 | RA
+  ;        -1 | n-1
+  ;        -2 | n-2
+  ;        -3 | fib(n-1)
+  ;        -4 | fib(n-2)
+  LDFP
+  STRS 0
+  LDSP
+  ADC -1
+  STFP
+  ADC -5
+  STSP
+  ; And write RA to the corresponding place
+  LDRA
+  STRF 0
+
+  ; Check if we even need to do any recursive calls
+  LDRF 2
+  EQL zero
+  JMN fib-ret-0
+  LDRF 2
+  EQL one
+  JMN fib-ret-1
+  JMP fib-continue
+  fib-ret-0:
+  LDC 0
+  STV tmp1
+  JMP fib-cleanup
+  fib-ret-1:
+  LDC 1
+  STV tmp1
+  JMP fib-cleanup
+  fib-continue:
+
+  ; Calculate n-1 and n-2 and store on stack
+  LDRF 2
+  ADC -1
+  STRF -1
+  LDRF 2
+  ADC -2
+  STRF -2
+
+  ;; Recursive call for n-1
+  ; Remember function argument in tmp1
+  LDRF -1
+  STV tmp1
+  ; Create shared stack frame of size 1
+  LDFP
+  STRS 0
+  LDSP
+  ADC -1
+  STFP
+  ADC -1
+  STSP
+  ; And fill in the first argument
+  LDV tmp1
+  STRF 0
+  ; Now, we can call fib
+  CALL fib
+  ; Restore this function's stack frame
+  LDFP
+  ADC 1
+  STSP
+  LDRF 1
+  STFP
+  ; Store the result of the call on the stack
+  LDV tmp1
+  STRF -3
+
+  ;; Recursive call for n-2
+  ; Remember function argument in tmp1
+  LDRF -2
+  STV tmp1
+  ; Create shared stack frame of size 1
+  LDFP
+  STRS 0
+  LDSP
+  ADC -1
+  STFP
+  ADC -1
+  STSP
+  ; And fill in the first argument
+  LDV tmp1
+  STRF 0
+  ; Now, we can call fib
+  CALL fib
+  ; Restore this function's stack frame
+  LDFP
+  ADC 1
+  STSP
+  LDRF 1
+  STFP
+  ; Store the result of the call on the stack
+  LDV tmp1
+  STRF -4
+
+  ; Add the return values and write the result to tmp1
+  LDRF -3
+  STV tmp1
+  LDRF -4
+  ADD tmp1
+  STV tmp1
+
+  ;; Deinitialization
+  fib-cleanup:
+  ; Restore RA
+  LDRF 0
+  STRA
+  ; Restore previous stack frame
+  LDFP
+  ADC 1
+  STSP
+  LDRF 1
+  STFP
+
+  RET
+
+; Fibonacci numbers will be written here
+300:
+number-array: LIT 0
