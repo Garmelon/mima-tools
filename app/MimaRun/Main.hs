@@ -71,7 +71,7 @@ settingsParser = Settings
   <*> formatConfigParser
 
 opts :: ParserInfo Settings
-opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
+opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1 <> footer formatConfigHelp
 
 {- Loading the flag file -}
 
