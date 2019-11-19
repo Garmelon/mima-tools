@@ -92,7 +92,8 @@ fFlags a = do
       f = feFlags env
       memoryFlags   = if fcShowMemoryFlags   conf then fMemoryFlags   f a else ""
       registerFlags = if fcShowRegisterFlags conf then fRegisterFlags s a else ""
-  pure $ memoryFlags <> registerFlags
+      space = if fcShowMemoryFlags conf || fcShowRegisterFlags conf then " " else ""
+  pure $ memoryFlags <> registerFlags <> space
 
 {- Addresses -}
 
@@ -146,7 +147,7 @@ fMemoryLn a = do
   flags <- fFlags a
   addr <- fAddress a
   word <- fWord w
-  pure $ flags <> " " <> addr <> " " <> word <> "\n"
+  pure $ flags <> addr <> " " <> word <> "\n"
 
 interestingAddresses :: FormatReader (Set.Set MimaAddress)
 interestingAddresses = do
@@ -166,7 +167,7 @@ getAddresses = do
     then do
       interesting <- interestingAddresses
       pure $ Set.toAscList $ Set.union interesting $ Set.fromList $ usedAddresses mem
-    else pure $ usedAddresses mem
+    else pure $ continuousUsedAddresses mem
 
 fMemory :: Formatter
 fMemory = do

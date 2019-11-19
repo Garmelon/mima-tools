@@ -39,7 +39,7 @@ chunkyBin :: T.Text -> T.Text
 chunkyBin = chunkedBy " " 4
 
 chunkyDec :: T.Text -> T.Text
-chunkyDec = chunkedBy "'" 3
+chunkyDec = chunkedBy " " 3
 
 chunkyHex :: T.Text -> T.Text
 chunkyHex = chunkedBy " " 2
