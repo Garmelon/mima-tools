@@ -41,8 +41,8 @@ lLine = do
   hidden lNewlines
   pure (a, f)
 
-parseFlagFile :: Parser AllFlags
+parseFlagFile :: Parser RawFlags
 parseFlagFile = space *> many lNewline *> (Map.fromList <$> many lLine) <* hidden eof
 
-readFlagFile :: FilePath -> T.Text -> Either WeedErrorBundle AllFlags
+readFlagFile :: FilePath -> T.Text -> Either WeedErrorBundle RawFlags
 readFlagFile filename input = parse parseFlagFile filename input

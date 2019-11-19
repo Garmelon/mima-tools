@@ -29,5 +29,5 @@ fRange r
 fLine :: (AddressRange, Set.Set Char) -> T.Text
 fLine (r, s) = fRange r <> ": " <> fFlagSet s <> "\n"
 
-formatFlagFile :: AllFlags -> T.Text
+formatFlagFile :: RawFlags -> T.Text
 formatFlagFile = mconcat . map fLine . Map.assocs

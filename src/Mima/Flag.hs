@@ -18,7 +18,7 @@ module Mima.Flag
   , flagChar
   , Flags(..)
   , rawFlags
-  , AllFlags
+  , RawFlags
   , FlagSpec
   , getFlagSpec
   , interpretFlagSpec
@@ -113,10 +113,10 @@ rawFlags = Flags
   , flagReadOnly   = ReadOnly
   }
 
-type AllFlags = Map.Map AddressRange (Set.Set Char)
+type RawFlags = Map.Map AddressRange (Set.Set Char)
 type FlagSpec = Flags AddressSpec
 
-getFlagSpec :: AllFlags -> FlagSpec
+getFlagSpec :: RawFlags -> FlagSpec
 getFlagSpec af =
   let isInSet :: Flag -> Set.Set Char -> Bool
       isInSet f s = flagChar f `Set.member` s
