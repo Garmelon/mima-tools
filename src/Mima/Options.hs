@@ -1,6 +1,7 @@
 module Mima.Options
-  ( switchWithNo
-  , formatConfigHelp
+  ( flagFooter
+  , switchWithNo
+  , hiddenSwitchWithNo
   , formatConfigParser
   ) where
 
@@ -8,38 +9,50 @@ import Options.Applicative
 
 import Mima.Format.State
 
-switchWithNo :: String -> Bool -> Mod FlagFields Bool -> Parser Bool
-switchWithNo name defaultValue fields
-  | defaultValue = flag' False noMod <|> flag True True yesMod
-  | otherwise    = flag' True yesMod <|> flag False False noMod
-  where
-    yesMod = long name <> hidden <> fields
-    noMod  = long ("no-" ++ name) <> hidden
+flagFooter :: String
+flagFooter =  "To disable an option, prepend 'no-' to its name (e. g. to disable"
+           ++ " '--discover', use '--no-discover'). This only applies to options"
+           ++ " with a default of 'enabled' or 'disabled'."
 
-formatConfigHelp :: String
-formatConfigHelp = "All options labeled with 'Formatting:' can be negated by prepending 'no-' to their name (e. g. '--sparse' becomes '--no-sparse')."
+enabledOrDisabled :: Bool -> String
+enabledOrDisabled False = "disabled"
+enabledOrDisabled True  = "enabled"
+
+switchWithNo :: String -> Bool -> String -> Parser Bool
+switchWithNo name defaultValue helpText =
+  flag' False noMod <|> flag defaultValue True yesMod
+  where
+    noMod  = long ("no-" ++ name) <> hidden
+    yesMod = long name <> help (helpText ++ " (default: " ++ enabledOrDisabled defaultValue ++ ")")
+
+hiddenSwitchWithNo :: String -> Bool -> String -> Parser Bool
+hiddenSwitchWithNo name defaultValue helpText =
+  flag' False noMod <|> flag defaultValue True yesMod
+  where
+    noMod  = long ("no-" ++ name) <> hidden
+    yesMod = long name <> hidden <> help (helpText ++ " (default: " ++ enabledOrDisabled defaultValue ++ ")")
 
 formatConfigParser :: Parser FormatConfig
 formatConfigParser = FormatConfig
-  <$> switchWithNo "sparse" False
-      (help "Formatting: Omit uninteresting addresses")
-  <*> switchWithNo "register-flags" True
-      (help "Formatting: For each address, show all the memory flags that are active for that address")
-  <*> switchWithNo "memory-flags" True
-      (help "Formatting: For each address, show all registers currently pointing to that address")
-  <*> switchWithNo "address-dec" True
-      (help "Formatting: Display addresses in decimal")
-  <*> switchWithNo "address-hex" True
-      (help "Formatting: Display addresses in hexadecimal")
-  <*> switchWithNo "address-bin" False
-      (help "Formatting: Display addresses in binary")
-  <*> switchWithNo "word-dec" True
-      (help "Formatting: Display words in decimal")
-  <*> switchWithNo "word-hex" True
-      (help "Formatting: Display words in hexadecimal")
-  <*> switchWithNo "word-bin" False
-      (help "Formatting: Display words in binary")
-  <*> switchWithNo "instructions" True
-      (help "Formatting: Show instructions")
-  <*> switchWithNo "labels" True
-      (help "Formatting: Show labels from the symbol file")
+  <$> hiddenSwitchWithNo "sparse" True
+      "Omit uninteresting addresses"
+  <*> hiddenSwitchWithNo "register-flags" True
+      "For each address, show all the memory flags that are active for that address"
+  <*> hiddenSwitchWithNo "memory-flags" True
+      "For each address, show all registers currently pointing to that address"
+  <*> hiddenSwitchWithNo "address-dec" True
+      "Display addresses in decimal"
+  <*> hiddenSwitchWithNo "address-hex" True
+      "Display addresses in hexadecimal"
+  <*> hiddenSwitchWithNo "address-bin" False
+      "Display addresses in binary"
+  <*> hiddenSwitchWithNo "word-dec" True
+      "Display words in decimal"
+  <*> hiddenSwitchWithNo "word-hex" True
+      "Display words in hexadecimal"
+  <*> hiddenSwitchWithNo "word-bin" False
+      "Display words in binary"
+  <*> hiddenSwitchWithNo "instructions" True
+      "Show instructions"
+  <*> hiddenSwitchWithNo "labels" True
+      "Show labels from the symbol file"

@@ -2,7 +2,6 @@
 
 module Mima.Format.State
   ( FormatConfig(..)
-  , defaultFormatConfig
   , FormatEnv(..)
   , FormatReader
   , Formatter
@@ -42,21 +41,6 @@ data FormatConfig = FormatConfig
   , fcShowInstructions  :: Bool -- Currently unused
   , fcShowLabels        :: Bool -- Currently unused
   } deriving (Show)
-
-defaultFormatConfig :: FormatConfig
-defaultFormatConfig = FormatConfig
-  { fcSparse            = True
-  , fcShowRegisterFlags = True
-  , fcShowMemoryFlags   = True
-  , fcShowAddressDec    = True
-  , fcShowAddressHex    = True
-  , fcShowAddressBin    = False
-  , fcShowWordDec       = True
-  , fcShowWordHex       = True
-  , fcShowWordBin       = False
-  , fcShowInstructions  = True
-  , fcShowLabels        = False
-  }
 
 data FormatEnv = FormatEnv
   { feState  :: MimaState

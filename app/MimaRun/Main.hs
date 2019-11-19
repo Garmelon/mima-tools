@@ -46,7 +46,7 @@ settingsParser = Settings
        <> metavar "OUTFILE"
        <> help "If specified, write the memory dump to this file after execution is finished")
   <*> switchWithNo "discover" True
-      (help "Disable the automatic loading of the .mima-flags and .mima-symbols files")
+      "Try to load .mima-flags and .mima-symbols corresponding to the .mima input file"
   <*> (optional . strOption)
       (long "flag-file"
        <> short 'f'
@@ -59,11 +59,12 @@ settingsParser = Settings
        <> help "A file containing label names and addresses, specified in the .mima-symbols format")
   <*> (optional . option auto)
       (long "steps"
+       <> short 'n'
        <> metavar "N"
        <> help "How many instructions to execute (if not specified, runs until HALT or execution exception)")
   <*> flag False True
-      (long "norun"
-       <> help "Don't run the MiMa. Use the initial state for all further actions. Roughly equivalent to -n 0")
+      (long "no-run"
+       <> help "Don't run the MiMa. Use the initial state for all further actions. Roughly equivalent to --steps 0")
   <*> flag False True
       (long "quiet"
        <> short 'q'
@@ -71,7 +72,7 @@ settingsParser = Settings
   <*> formatConfigParser
 
 opts :: ParserInfo Settings
-opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1 <> footer formatConfigHelp
+opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1 <> footer flagFooter
 
 {- Loading the flag file -}
 
