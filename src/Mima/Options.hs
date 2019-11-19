@@ -36,10 +36,12 @@ formatConfigParser :: Parser FormatConfig
 formatConfigParser = FormatConfig
   <$> hiddenSwitchWithNo "sparse" True
       "Omit uninteresting addresses"
+  <*> hiddenSwitchWithNo "registers" True
+      "Show the contents of registers before the memory dump"
+  <*> hiddenSwitchWithNo "memory-flags" False
+      "For each address, show all registers currently pointing to that address"
   <*> hiddenSwitchWithNo "register-flags" True
       "For each address, show all the memory flags that are active for that address"
-  <*> hiddenSwitchWithNo "memory-flags" True
-      "For each address, show all registers currently pointing to that address"
   <*> hiddenSwitchWithNo "address-dec" True
       "Display addresses in decimal"
   <*> hiddenSwitchWithNo "address-hex" True

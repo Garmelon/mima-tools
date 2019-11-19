@@ -6,8 +6,9 @@ module Mima.State
   , mapToMemory
   , wordsToMemory
   , memoryToWords
+  , maxAddress
   , usedAddresses
-  , sparseUsedAddresses
+  , continuousUsedAddresses
   , readAt
   , writeAt
   , MimaState(..)
@@ -24,6 +25,7 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
 import           Data.Bits
 import qualified Data.Map.Strict as Map
+import           Data.Maybe
 import qualified Data.Text as T
 
 import           Mima.Flag
@@ -43,16 +45,16 @@ wordsToMemory = mapToMemory
               . zip [minBound..]
 
 memoryToWords :: MimaMemory -> [MimaWord]
-memoryToWords mem = map (\addr -> readAt addr mem) $ usedAddresses mem
+memoryToWords mem = map (\addr -> readAt addr mem) $ continuousUsedAddresses mem
+
+maxAddress :: MimaMemory -> MimaAddress
+maxAddress (MimaMemory m) = fromMaybe minBound $ fst <$> Map.lookupMax m
 
 usedAddresses :: MimaMemory -> [MimaAddress]
-usedAddresses (MimaMemory m) =
-  case fst <$> Map.lookupMax m of
-    Nothing      -> []
-    Just maxAddr -> [minBound..maxAddr]
+usedAddresses (MimaMemory m) = Map.keys m
 
-sparseUsedAddresses :: MimaMemory -> [MimaAddress]
-sparseUsedAddresses (MimaMemory m) = Map.keys m
+continuousUsedAddresses :: MimaMemory -> [MimaAddress]
+continuousUsedAddresses mem = [minBound..maxAddress mem]
 
 readAt :: MimaAddress -> MimaMemory -> MimaWord
 readAt addr (MimaMemory m) = Map.findWithDefault zeroBits addr m

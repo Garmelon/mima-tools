@@ -146,7 +146,7 @@ main :: IO ()
 main = doRun_ $ do
   settings <- lift $ execParser opts
 
-  lift $ putStrLn $ "Loading memdump at " ++ infile settings
+  lift $ putStrLn $ "Loading memdump from " ++ infile settings
   ms <- loadStateFromFile (infile settings)
 
   flags  <- loadFlags settings
@@ -156,7 +156,7 @@ main = doRun_ $ do
     then pure ms
     else lift $ runMima settings ms flags
 
-  unless (quiet settings) $ printState ms flags labels settings
+  unless (quiet settings) $ printState ms' flags labels settings
 
   forM_ (outfile settings) $ \path -> do
     lift $ putStrLn $ "Saving memdump at " ++ path

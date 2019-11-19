@@ -13,6 +13,10 @@ module Mima.Format.State
   , fAddress
   -- * Words
   , fWord
+  -- * Memory
+  , fMemory
+  -- * Registers
+  , fRegisters
   -- * The whole state
   , formatState
   ) where
@@ -30,8 +34,9 @@ import           Mima.Word
 
 data FormatConfig = FormatConfig
   { fcSparse            :: Bool
-  , fcShowRegisterFlags :: Bool
+  , fcShowRegisters     :: Bool
   , fcShowMemoryFlags   :: Bool
+  , fcShowRegisterFlags :: Bool
   , fcShowAddressDec    :: Bool
   , fcShowAddressHex    :: Bool
   , fcShowAddressBin    :: Bool
@@ -108,7 +113,7 @@ fAddress a = do
       hex = if fcShowAddressHex conf then [fAddressHex] else []
       bin = if fcShowAddressBin conf then [fAddressBin] else []
       formats = (dec ++ hex ++ bin) <*> pure a
-  pure $ "[" <> T.intercalate "," formats <> "]"
+  pure $ "[" <> T.intercalate ", " formats <> "]"
 
 {- Words -}
 
@@ -129,7 +134,7 @@ fWord a = do
       hex = if fcShowWordHex conf then [fWordHex] else []
       bin = if fcShowWordBin conf then [fWordBin] else []
       formats = (dec ++ hex ++ bin) <*> pure a
-  pure $ "{" <> T.intercalate "," formats <> "}"
+  pure $ "{" <> T.intercalate ", " formats <> "}"
 
 {- Memory -}
 
@@ -143,18 +148,65 @@ fMemoryLn a = do
   word <- fWord w
   pure $ flags <> " " <> addr <> " " <> word <> "\n"
 
-fMemory :: Formatter
-fMemory = do
+interestingAddresses :: FormatReader (Set.Set MimaAddress)
+interestingAddresses = do
+  env <- ask
+  let conf = feConf env
+      s = feState env
+  pure $ if fcShowRegisterFlags conf
+    then Set.fromList [msIAR s, msRA s, msSP s, msFP s]
+    else Set.empty
+  
+getAddresses :: FormatReader [MimaAddress]
+getAddresses = do
   env <- ask
   let conf = feConf env
       mem = msMemory $ feState env
-      addrs = if fcSparse conf then sparseUsedAddresses mem else usedAddresses mem 
+  if fcSparse conf
+    then do
+      interesting <- interestingAddresses
+      pure $ Set.toAscList $ Set.union interesting $ Set.fromList $ usedAddresses mem
+    else pure $ usedAddresses mem
+
+fMemory :: Formatter
+fMemory = do
+  addrs <- getAddresses
   mconcat <$> mapM fMemoryLn addrs
+
+{- Registers -}
+
+fAddressRegister :: T.Text -> MimaAddress -> Formatter
+fAddressRegister name addr = do
+  addrText <- fAddress addr
+  pure $ name <> ": " <> addrText <> "\n"
+
+fWordRegister :: T.Text -> MimaWord -> Formatter
+fWordRegister name word = do
+  wordText <- fWord word
+  pure $ name <> ": " <> wordText <> "\n"
+
+fRegisters :: Formatter
+fRegisters = do
+  env <- ask
+  let s = feState env
+  mconcat <$> sequenceA [ fAddressRegister "IAR" (msIAR s)
+                        , fWordRegister    "ACC" (msACC s)
+                        , fAddressRegister " RA" (msRA s)
+                        , fAddressRegister " SP" (msSP s)
+                        , fAddressRegister " FP" (msFP s)
+                        ]
 
 {- And finally, the whole state -}
 
 fState :: Formatter
-fState = fMemory
+fState = do
+  env <- ask
+  let conf = feConf env
+  memText <- ("--< MEMORY >--\n"    <>) <$> fMemory
+  regText <- ("--< REGISTERS >--\n" <>) <$> fRegisters
+  pure $ if fcShowRegisters conf
+    then regText <> memText
+    else memText
 
 formatState :: FormatEnv -> T.Text
 formatState = runReader fState
