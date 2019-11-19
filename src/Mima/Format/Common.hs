@@ -33,7 +33,7 @@ toHex :: (Integral a, Show a) => a -> T.Text
 toHex a = T.pack $ showHex a ""
 
 chunkedBy :: T.Text -> Int -> T.Text -> T.Text
-chunkedBy sep n = T.intercalate sep . T.chunksOf n
+chunkedBy sep n = T.reverse . T.intercalate sep . T.chunksOf n . T.reverse
 
 chunkyBin :: T.Text -> T.Text
 chunkyBin = chunkedBy " " 4
