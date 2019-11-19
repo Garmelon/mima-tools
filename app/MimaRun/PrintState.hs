@@ -10,6 +10,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           System.Console.ANSI
 
+import           Mima.Format.Common
 import           Mima.Instruction
 import           Mima.State
 import           Mima.Util
@@ -17,14 +18,14 @@ import           Mima.Word
 
 printAddress :: Int -> MimaAddress -> IO ()
 printAddress n addr = do
-  T.putStr $ toHexBytes addr
+  T.putStr $ toHex addr
   putStr " ("
   T.putStr $ T.justifyRight n ' ' $ toDec addr
   putStr ")"
 
 printWord :: Int -> MimaWord -> IO ()
 printWord n word = do
-  T.putStr $ toHexBytes word
+  T.putStr $ toHex word
   putStr " ("
   T.putStr $ T.justifyRight n ' ' $ toDec word
   putStr ")"
