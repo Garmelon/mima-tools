@@ -11,12 +11,11 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Text.Megaparsec
 
+import           Mima.Label
 import           Mima.Parse.Common
 import           Mima.Parse.Lexeme
 import           Mima.Parse.Weed
 import           Mima.Word
-
-type LabelName = T.Text
 
 {- Parsing -}
 
