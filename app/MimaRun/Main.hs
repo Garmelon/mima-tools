@@ -2,19 +2,21 @@ module Main where
 
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
 import qualified Data.Text.IO as T
 import           Options.Applicative
 import           System.FilePath
 
 import           Mima.Flag
+import           Mima.Format.State
 import           Mima.IO
+import           Mima.Label
 import           Mima.Load
+import           Mima.Options
 import           Mima.Parse.FlagFile
 import           Mima.State
 import           Mima.Util
 import           Mima.Word
-
-import           PrintState
 
 data Settings = Settings
   -- General
@@ -28,7 +30,7 @@ data Settings = Settings
   , norun      :: Bool
   -- Output
   , quiet      :: Bool
-  , sparse     :: Bool
+  , formatConf :: FormatConfig
   } deriving (Show)
 
 {- Command-line parameters -}
@@ -43,16 +45,15 @@ settingsParser = Settings
        <> short 'o'
        <> metavar "OUTFILE"
        <> help "If specified, write the memory dump to this file after execution is finished")
-  <*> flag True False
-      (long "nodiscover"
-       <> help "Disable the automatic loading of the .mima-flags and .mima-symbols files")
+  <*> switchWithNo "discover" True
+      (help "Disable the automatic loading of the .mima-flags and .mima-symbols files")
   <*> (optional . strOption)
-      (long "flags"
+      (long "flag-file"
        <> short 'f'
        <> metavar "FLAGFILE"
        <> help "A file containing extension memory flags, specified in the .mima-flags format")
   <*> (optional . strOption)
-      (long "symbols"
+      (long "symbol-file"
        <> short 's'
        <> metavar "SYMBOLFILE"
        <> help "A file containing label names and addresses, specified in the .mima-symbols format")
@@ -67,14 +68,47 @@ settingsParser = Settings
       (long "quiet"
        <> short 'q'
        <> help "Don't print the memory dump")
-  <*> flag False True
-      (long "sparse"
-       <> help "Don't print memory locations containing only 0x000000 in the memory dump")
+  <*> formatConfigParser
 
 opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
 
-{- Main logic -}
+{- Loading the flag file -}
+
+-- If explicit file name:
+--   Try to load file
+--   Fail if loading fails
+-- Elif discover:
+--   Try to load file
+--   Use defaults if loading fails
+-- Else:
+--   Use defaults
+
+loadFlagFile :: FilePath -> Run (Flags (MimaAddress -> Bool))
+loadFlagFile filename = do
+  lift $ putStrLn $ "Loading flags from " ++ filename
+  (interpretFlagSpec . getFlagSpec) <$> loadFile readFlagFile filename
+
+withDefaultFlags :: Run (Flags (MimaAddress -> Bool)) -> Run (Flags (MimaAddress -> Bool))
+withDefaultFlags p = do
+  result <- tryRun p
+  case result of
+    Just flags -> pure flags
+    Nothing -> do
+      lift $ putStrLn "Using default flags"
+      pure noFlags
+
+loadFlags :: Settings -> Run (Flags (MimaAddress -> Bool))
+loadFlags settings =
+  case flagFile settings of
+    Just filename -> loadFlagFile filename
+    Nothing -> withDefaultFlags $ if discover settings
+      then loadFlagFile discovered
+      else throwE "File not specified and discovery turned off"
+  where
+    discovered = dropExtension (infile settings) ++ ".mima-flags"
+
+{- Other functions -}
 
 runMima :: Settings -> MimaState -> Flags (MimaAddress -> Bool) -> IO MimaState
 runMima settings s f =
@@ -93,27 +127,18 @@ runMima settings s f =
         Just e  -> T.putStrLn $ toText e
       pure s'
 
-loadFlagFile :: FilePath -> Run (Flags (MimaAddress -> Bool))
-loadFlagFile filename = (interpretFlagSpec . getFlagSpec) <$> loadFile readFlagFile filename
-
-loadFlags :: Settings -> Run (Flags (MimaAddress -> Bool))
-loadFlags settings = do
-  case flagFile settings of
-    Just filename -> do
-      lift $ putStrLn $ "Loading flags from specified file: " ++ filename
-      loadFlagFile filename
-    Nothing -> do
-      maybeFlags <- if discover settings then tryLoadDiscovered else pure Nothing
-      case maybeFlags of
-        Just flags -> pure flags
-        Nothing -> do
-          lift $ putStrLn "Not using flags"
-          pure noFlags
-  where
-    discovered = dropExtension (infile settings) ++ ".mima-flags"
-    tryLoadDiscovered = do
-      lift $ putStrLn $ "Loading flags from file: " ++ discovered
-      tryRun (loadFlagFile discovered)
+printState :: MimaState -> Flags (MimaAddress -> Bool) -> LabelSpec -> Settings -> Run ()
+printState ms flags labels settings = do
+  let formatEnv = FormatEnv
+        { feState  = ms
+        , feFlags  = flags
+        , feLabels = labelsByAddress labels
+        , feConf   = formatConf settings
+        }
+  lift $ putStrLn ""
+  lift $ putStrLn "Dump of MiMa state:"
+  lift $ T.putStrLn $ formatState formatEnv
+  lift $ putStrLn ""
 
 -- TODO exception handling
 main :: IO ()
@@ -123,15 +148,14 @@ main = doRun_ $ do
   lift $ putStrLn $ "Loading memdump at " ++ infile settings
   ms <- loadStateFromFile (infile settings)
 
-  flags <- loadFlags settings
+  flags  <- loadFlags settings
+  labels <- pure noLabels -- loadSymbolFile settings
 
-  ms' <- if norun settings then pure ms else lift (runMima settings ms flags)
+  ms' <- if norun settings
+    then pure ms
+    else lift $ runMima settings ms flags
 
-  unless (quiet settings) $ do
-    lift $ putStrLn ""
-    lift $ putStrLn "Dump of MiMa state:"
-    lift $ printStateLn (sparse settings) ms'
-    lift $ putStrLn ""
+  unless (quiet settings) $ printState ms flags labels settings
 
   forM_ (outfile settings) $ \path -> do
     lift $ putStrLn $ "Saving memdump at " ++ path

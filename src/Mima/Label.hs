@@ -2,11 +2,12 @@ module Mima.Label
   ( LabelName
   , LabelSpec
   , labelsByAddress
+  , noLabels
   ) where
 
 import qualified Data.Map as Map
-import qualified Data.Text as T
 import qualified Data.Set as Set
+import qualified Data.Text as T
 
 import           Mima.Word
 
@@ -19,3 +20,6 @@ labelsByAddress = ($ Map.empty)
                 . reverse
                 . map (\(l, a) -> Map.insertWith Set.union a (Set.singleton l))
                 . Map.assocs
+
+noLabels :: LabelSpec
+noLabels = Map.empty
