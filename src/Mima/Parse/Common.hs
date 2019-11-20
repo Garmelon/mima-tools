@@ -157,9 +157,12 @@ fixedWidthDec = fixedWidthWithExponent 10 decDigit
 fixedWidthHex :: (Num a) => Int -> Parser a
 fixedWidthHex = fixedWidthWithExponent 16 hexDigit
 
+-- The 'try' below is necessary for the label to take effect if the parser
+-- succeeds but the value is out of bounds. In that case, the do-block has
+-- usually already consumed input, so the label wouldn't take effect.
 asBoundedValue :: (Show a, Ord a) => a -> a -> Parser a -> Parser a
 asBoundedValue lower upper parser =
-  label ("value within bounds " ++ show (lower, upper)) $ do
+  label ("value within bounds " ++ show (lower, upper)) $ try $ do
     value <- parser
     if lower <= value && value <= upper
       then pure value
