@@ -119,7 +119,7 @@ hexDigit = label "hexadecimal digit" $ token (helper . toLower) Set.empty
     helper _   = Nothing
 
 accumulateToBase :: (Integral a) => a -> [a] -> a
-accumulateToBase base = helper
+accumulateToBase base = helper . reverse
   where
     helper []     = 0
     helper [d]    = d
