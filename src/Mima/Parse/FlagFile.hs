@@ -21,11 +21,8 @@ import           Mima.Word
 lAddress :: Parser MimaAddress
 lAddress = lexeme fixedWidthHexAddress
 
-lFlag :: Parser (Set.Set Char)
-lFlag = lexeme $ label "alphanumeric character" $ Set.singleton <$> satisfy isAlphaNum
-
 lFlags :: Parser (Set.Set Char)
-lFlags = Set.unions <$> some lFlag
+lFlags = Set.unions <$> some (lexeme flag)
 
 lAddressRange :: Parser AddressRange
 lAddressRange = do

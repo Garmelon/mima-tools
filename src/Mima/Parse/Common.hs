@@ -6,6 +6,7 @@ module Mima.Parse.Common
   -- * Basic parsers
   , whitespace
   , labelName
+  , flag
   -- ** Number literals
   , binDigit
   , decDigit
@@ -57,6 +58,9 @@ labelName = label "label" $ do
   t <- satisfy isAlpha
   ts <- takeWhileP Nothing (\c -> isAlphaNum c || isConnecting c)
   pure $ T.singleton t <> ts
+
+flag :: Parser (Set.Set Char)
+flag = label "alphanumeric character" $ Set.singleton <$> satisfy isAlphaNum
 
 binDigit :: (Num a) => Parser a
 binDigit = label "binary digit" $ token helper Set.empty
