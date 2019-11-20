@@ -9,9 +9,15 @@ module Mima.Parse.Common
   -- ** Number literals
   , binDigit
   , decDigit
+  , octDigit
   , hexDigit
+  , binNumber
+  , decNumber
+  , octNumber
+  , hexNumber
   , fixedWidthBin
   , fixedWidthDec
+  , fixedWidthOct
   , fixedWidthHex
   -- ** MiMa types
   , asWord
@@ -59,6 +65,19 @@ binDigit = label "binary digit" $ token helper Set.empty
     helper '1' = Just 1
     helper _   = Nothing
 
+octDigit :: (Num a) => Parser a
+octDigit = label "octal digit" $ token helper Set.empty
+  where
+    helper '0' = Just 0
+    helper '1' = Just 1
+    helper '2' = Just 2
+    helper '3' = Just 3
+    helper '4' = Just 4
+    helper '5' = Just 5
+    helper '6' = Just 6
+    helper '7' = Just 7
+    helper _   = Nothing
+
 decDigit :: (Num a) => Parser a
 decDigit = label "decimal digit" $ token helper Set.empty
   where
@@ -95,6 +114,25 @@ hexDigit = label "hexadecimal digit" $ token (helper . toLower) Set.empty
     helper 'f' = Just 15
     helper _   = Nothing
 
+accumulateToBase :: (Integral a) => a -> [a] -> a
+accumulateToBase base = helper
+  where
+    helper []     = 0
+    helper [d]    = d
+    helper (d:ds) = d + base * helper ds
+
+binNumber :: (Integral a) => Parser a
+binNumber = label "binary number" $ accumulateToBase 2 <$> some binDigit
+
+octNumber :: (Integral a) => Parser a
+octNumber = label "octal number" $ accumulateToBase 8 <$> some octDigit
+
+decNumber :: (Integral a) => Parser a
+decNumber = label "decimal number" $ accumulateToBase 10 <$> some decDigit
+
+hexNumber :: (Integral a) => Parser a
+hexNumber = label "hexadecimal number" $ accumulateToBase 16 <$> some hexDigit
+
 fixedWidthWithExponent :: (Num a) => a -> Parser a -> Int -> Parser a
 fixedWidthWithExponent e digit width = do
   digits <- count width digit
@@ -105,6 +143,9 @@ fixedWidthWithExponent e digit width = do
 
 fixedWidthBin :: (Num a) => Int -> Parser a
 fixedWidthBin = fixedWidthWithExponent 2 binDigit
+
+fixedWidthOct :: (Num a) => Int -> Parser a
+fixedWidthOct = fixedWidthWithExponent 8 octDigit
 
 fixedWidthDec :: (Num a) => Int -> Parser a
 fixedWidthDec = fixedWidthWithExponent 10 decDigit
