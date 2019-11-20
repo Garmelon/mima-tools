@@ -6,7 +6,6 @@ module Mima.Parse.FlagFile
   ) where
 
 import           Control.Monad
-import           Data.Char
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
