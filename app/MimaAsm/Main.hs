@@ -3,9 +3,9 @@ module Main where
 import Control.Monad.Trans.Class
 import Options.Applicative
 
-import Mima.Assembler.Parser
 import Mima.IO
 import Mima.Load
+import Mima.Parse.Assembly
 
 data Settings = Settings
   { infile     :: String
@@ -33,7 +33,7 @@ main = doRun_ $ do
   settings <- lift $ execParser opts
 
   lift $ putStrLn $ "Loading assembly file at " ++ infile settings
-  (state, _) <- loadFile readState (infile settings)
+  (state, _, _) <- loadFile readAssembly (infile settings)
   lift $ putStrLn "Parsing successful"
 
   lift $ putStrLn $ "Writing result to " ++ outfile settings
