@@ -93,6 +93,7 @@ addAlmostWord :: WithOffset a -> AlmostWord Address -> SWeed ()
 addAlmostWord thing aw = do
   addr <- toNextFree thing
   modifyResult (\r -> r{wrMemory = Map.insert addr aw (wrMemory r)})
+  modify (\s -> s{wsOccupied = True})
 
 addLabel :: WithOffset a -> LabelName -> SWeed ()
 addLabel thing l = do
