@@ -53,7 +53,7 @@ lFlags :: Parser (Set.Set Char)
 lFlags = Set.unions <$> some (lexeme flag)
 
 lDirective :: Parser (Directive Address)
-lDirective = label "assembler directive" $ undefined
+lDirective = label "assembler directive" $
       DReg <$> directive ".reg" lSetRegister
   <|> DOrg <$> directive ".org" (lexeme largeValue)
   <|> DLit <$> directive ".lit" (lexeme word)
