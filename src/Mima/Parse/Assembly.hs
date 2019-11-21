@@ -6,14 +6,15 @@ module Mima.Parse.Assembly
   ) where
 
 import           Control.Monad
-import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Text.Megaparsec
 
 import           Mima.Flag
+import           Mima.Instruction
 import           Mima.Label
 import           Mima.Parse.Assembly.Common
 import           Mima.Parse.Assembly.Lexeme
+import           Mima.Parse.Assembly.RawInstruction
 import           Mima.Parse.Assembly.Statement
 import           Mima.Parse.Assembly.Weed.Common
 import           Mima.Parse.Assembly.Weed.Resolve
@@ -29,10 +30,17 @@ parseAssembly = space *> many lNewline *> lStatements <* eof
 weedAssembly :: [WithOffset (Statement Address)] -> Weed WeedError (WeedResult MimaAddress)
 weedAssembly = weedStatements >=> resolveLabels
 
-formatAssembly :: WeedResult MimaAddress -> (MimaState, LabelSpec, Map.Map Char AddressRange)
-formatAssembly = undefined
+almostWordToWord :: AlmostWord MimaAddress -> MimaWord
+almostWordToWord (AInstruction i) = instructionToWord $ cookInstruction i
+almostWordToWord (ALiteral w)     = w
 
-readAssembly :: FilePath -> T.Text -> Either WeedErrorBundle (MimaState, LabelSpec, Map.Map Char AddressRange)
+formatAssembly :: WeedResult MimaAddress -> (MimaState, LabelSpec, RawFlags)
+formatAssembly res =
+  let mem = fmap almostWordToWord $ wrMemory res
+      s = registersToState (wrRegisters res) (mapToMemory mem)
+  in  (s, wrLabels res, wrFlags res)
+
+readAssembly :: FilePath -> T.Text -> Either WeedErrorBundle (MimaState, LabelSpec, RawFlags)
 readAssembly filename input = do
   unweeded <- parse parseAssembly filename input
   weeded <- runWeedBundle filename input $ weedAssembly unweeded

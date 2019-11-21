@@ -1,16 +1,19 @@
 module Mima.Parse.Assembly.Weed.Common
   ( Registers(..)
   , emptyRegisters
+  , registersToState
   , AlmostWord(..)
   , WeedResult(..)
   , emptyResult
   ) where
 
 import qualified Data.Map as Map
+import           Data.Maybe
 
 import           Mima.Flag
 import           Mima.Label
 import           Mima.Parse.Assembly.RawInstruction
+import           Mima.State
 import           Mima.Word
 
 data Registers a = Registers
@@ -30,6 +33,10 @@ emptyRegisters = Registers
   , rFP  = Nothing
   }
 
+registersToState :: Registers MimaAddress -> MimaMemory -> MimaState
+registersToState r mem = MimaState (fromMaybe 0 $ rIAR r) (fromMaybe 0 $ rACC r)
+  (fromMaybe 0 $ rRA r) (fromMaybe 0 $ rSP r) (fromMaybe 0 $ rFP r) mem
+
 data AlmostWord a
   = AInstruction (RawInstruction a)
   | ALiteral MimaWord
@@ -39,7 +46,7 @@ data WeedResult a = WeedResult
   { wrRegisters :: Registers a
   , wrMemory    :: Map.Map MimaAddress (AlmostWord a)
   , wrLabels    :: Map.Map LabelName MimaAddress
-  , wrFlags     :: Map.Map Char [AddressRange]
+  , wrFlags     :: RawFlags
   } deriving (Show)
 
 emptyResult :: WeedResult a

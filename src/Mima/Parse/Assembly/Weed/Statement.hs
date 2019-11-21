@@ -4,10 +4,10 @@ module Mima.Parse.Assembly.Weed.Statement
   ( weedStatements
   ) where
 
+import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import qualified Data.Map as Map
-import           Data.Maybe
 import qualified Data.Set as Set
 
 import           Mima.Flag
@@ -21,18 +21,20 @@ import           Mima.Parse.Weed
 import           Mima.Word
 
 data WeedState = WeedState
-  { wsAt        :: MimaAddress
-  , wsOccupied  :: Bool
-  , wsOpenFlags :: Map.Map Char MimaAddress
-  , wsResult    :: WeedResult Address
+  { wsAt          :: MimaAddress
+  , wsOccupied    :: Bool
+  , wsLastFlagsAt :: MimaAddress
+  , wsOpenFlags   :: Set.Set Char
+  , wsResult      :: WeedResult Address
   } deriving (Show)
 
 initialState :: WeedState
 initialState = WeedState
-  { wsAt        = minBound
-  , wsOccupied  = False
-  , wsOpenFlags = Map.empty
-  , wsResult    = emptyResult
+  { wsAt          = 0
+  , wsOccupied    = False
+  , wsLastFlagsAt = 0
+  , wsOpenFlags   = Set.empty
+  , wsResult      = emptyResult
   }
 
 -- Sweet!
@@ -58,7 +60,7 @@ toNextFree :: WithOffset a -> SWeed MimaAddress
 toNextFree thing = do
   s@WeedState{..} <- get
   if wsOccupied
-    then if wsAt >= maxBound 
+    then if wsAt >= maxBound
          then lift $ critical $ errorAt thing "No more space in memory, already at max address"
          else let next = wsAt + 1 in next <$ put s{wsAt = next, wsOccupied = False}
     else pure wsAt
@@ -100,30 +102,38 @@ addLabel thing l = do
     Nothing -> modifyResult (\r -> r{wrLabels = Map.insert l addr (wrLabels r)})
     Just _  -> lift $ harmless $ errorAt thing "Label was already defined earlier"
 
-addFlagRange :: Char -> AddressRange -> SWeed()
-addFlagRange c r =
-  modifyResult (\res -> res{wrFlags = Map.alter (Just . (r:) . fromMaybe []) c (wrFlags res)})
+pushFlags :: Set.Set Char -> SWeed ()
+pushFlags newFlags = do
+  WeedState{..} <- get
+  unless (Set.null wsOpenFlags) $ do
+    let r = range wsLastFlagsAt wsAt
+    modifyResult (\res -> res{wrFlags = Map.insert r wsOpenFlags (wrFlags res)})
+    modify (\st -> st{wsOpenFlags = newFlags, wsLastFlagsAt = wsAt})
 
-setFlag :: WithOffset a -> Char -> SWeed ()
-setFlag thing c = do
-  addr <- toNextFree thing
-  addFlagRange c $ range addr addr
+setFlags :: WithOffset a -> Set.Set Char -> SWeed ()
+setFlags thing flags = do
+  void $ toNextFree thing
+  WeedState{..} <- get
+  unless (flags `Set.isSubsetOf` wsOpenFlags) $ do
+    let withFlags = Set.union wsOpenFlags flags
+    pushFlags withFlags
+    pushFlags wsOpenFlags
 
-turnFlagOn :: WithOffset a -> Char -> SWeed ()
-turnFlagOn thing c = do
-  s@WeedState{..} <- get
-  case wsOpenFlags Map.!? c of
-    Just _  -> lift $ harmless $ errorAt thing "Flag is already active at this address"
-    Nothing -> put s{wsOpenFlags = Map.insert c wsAt wsOpenFlags}
+turnFlagsOn :: WithOffset a -> Set.Set Char -> SWeed ()
+turnFlagsOn thing flags = do
+  WeedState{..} <- get
+  let newFlags = Set.union wsOpenFlags flags
+  when (flags == newFlags) $
+    lift $ harmless $ errorAt thing "All flags already active at this address"
+  pushFlags newFlags
 
-turnFlagOff :: WithOffset a -> Char -> SWeed ()
-turnFlagOff thing c = do
-  s@WeedState{..} <- get
-  case wsOpenFlags Map.!? c of
-    Nothing    -> lift $ harmless $ errorAt thing "Flag is not active at this address"
-    Just start -> do
-      put s {wsOpenFlags = Map.delete c wsOpenFlags}
-      addFlagRange c $ range start wsAt
+turnFlagsOff :: WithOffset a -> Set.Set Char -> SWeed ()
+turnFlagsOff thing flags = do
+  WeedState{..} <- get
+  let newFlags = wsOpenFlags Set.\\ flags
+  when (flags == newFlags) $
+    lift $ harmless $ errorAt thing "All flags already inactive at this address"
+  pushFlags newFlags
 
 {- Weeding at a larger scale -}
 
@@ -134,9 +144,9 @@ weedDirective thing d = do
     DOrg addr      -> setAddressTo thing addr
     DLit w         -> addAlmostWord thing (ALiteral w)
     DArr ws        -> mapM_ (addAlmostWord thing . ALiteral) ws
-    DFlag chars    -> mapM_ (setFlag thing)     (Set.toList chars)
-    DFlagOn chars  -> mapM_ (turnFlagOn thing)  (Set.toList chars)
-    DFlagOff chars -> mapM_ (turnFlagOff thing) (Set.toList chars)
+    DFlag flags    -> setFlags thing flags
+    DFlagOn flags  -> turnFlagsOn thing flags
+    DFlagOff flags -> turnFlagsOff thing flags
 
 weedInstruction :: WithOffset a -> RawInstruction Address -> SWeed ()
 weedInstruction thing i = addAlmostWord thing $ AInstruction i
