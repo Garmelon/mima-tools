@@ -40,7 +40,7 @@ lSetRegister =
   <|> SetSP  <$> sepBySpace "sp" address
   <|> SetFP  <$> sepBySpace "fp" address
   where
-    sepBySpace name parser = symbol name *> lSpace *> lexeme parser
+    sepBySpace name parser = symbol' name *> lSpace *> lexeme parser
 
 lWordArray :: Parser [MimaWord]
 lWordArray = open *> (word `sepBy` comma) <* close
