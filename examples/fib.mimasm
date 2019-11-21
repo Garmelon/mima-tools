@@ -1,16 +1,16 @@
-IAR = main
-SP = 0xfffff
-FP = 0xfffff
+.reg IAR main
+.reg SP -1
+.reg FP -1
 
-zero: LIT 0 ; Constant value for use with EQL
-one:  LIT 1 ; Constant value for use with EQL
+zero: .lit 0 ; Constant value for use with EQL
+one:  .lit 1 ; Constant value for use with EQL
 
-tmp1: LIT 0
+tmp1: .lit 0
 
 ; Variables for main
-max-number:     LIT 10
-current-number: LIT 0
-ptr:            LDC number-array
+max-number: .lit 10
+current-number: .lit 0
+ptr: LDC number-array
 
 main:
   ; Calls fib for every n from current-number to max-number and stores
@@ -178,5 +178,5 @@ fib:
   RET
 
 ; Fibonacci numbers will be written here
-300:
-number-array: LIT 0
+.org 300
+number-array:

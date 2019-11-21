@@ -1,19 +1,16 @@
-; The same as fib.mimasm, but with an increased number of fibonacci numbers to
-; calculate. This file takes 11877318 steps to execute.
+.reg IAR main
+.reg SP -1
+.reg FP -1
 
-IAR = main
-SP = 0xfffff
-FP = 0xfffff
+zero: .lit 0 ; Constant value for use with EQL
+one:  .lit 1 ; Constant value for use with EQL
 
-zero: LIT 0 ; Constant value for use with EQL
-one:  LIT 1 ; Constant value for use with EQL
-
-tmp1: LIT 0
+tmp1: .lit 0
 
 ; Variables for main
-max-number:     LIT 24
-current-number: LIT 0
-ptr:            LDC number-array
+max-number: .lit 24
+current-number: .lit 0
+ptr: LDC number-array
 
 main:
   ; Calls fib for every n from current-number to max-number and stores
@@ -181,5 +178,5 @@ fib:
   RET
 
 ; Fibonacci numbers will be written here
-300:
-number-array: LIT 0
+.org 300
+number-array:

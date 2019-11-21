@@ -1,19 +1,17 @@
-IAR = main
-ACC = 0
-RA = 0
-SP = 0xfffff
+.reg IAR main
+.reg SP -1 ; the last addressable address
 
 ; In this example, the stack pointer points to the next free address
 ; below the stack. The stack grows downwards from large to small
 ; addresses. The stack has no stack frames to simplify the program.
 
-counter: LIT 0
+counter: .lit 0
 
-100:
+.org 100
 main:
   ; set counter bit 0
   LDV counter
-  ADC 0x01
+  ADC 0b00001
   STV counter
   
   ; Since we're top-level, we don't need to (re-)store our RA when calling
@@ -21,16 +19,16 @@ main:
 
   ; set counter bit 1
   LDV counter
-  ADC 0x02
+  ADC 0b00010
   STV counter
 
   HALT
 
-200:
+.org 200
 sub-1:
   ; Set counter bit 2
   LDV counter
-  ADC 0x04
+  ADC 0b00100
   STV counter
   
   ;; Store the current RA on the stack
@@ -56,16 +54,16 @@ sub-1:
 
   ; Set counter bit 3
   LDV counter
-  ADC 0x08
+  ADC 0b01000
   STV counter
 
   RET
 
-300:
+.org 300
 sub-2:
   ; Set counter bit 4
   LDV counter
-  ADC 0x10
+  ADC 0b10000
   STV counter
 
   RET

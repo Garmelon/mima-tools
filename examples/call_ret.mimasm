@@ -1,6 +1,4 @@
-IAR = main
-ACC = 0
-RA = 0
+.reg IAR main
 
 ; This CALL/RET example does not use any sort of stack, and thus can
 ; only go 1 call deep. Nevertheless, it demonstrates how the CALL and

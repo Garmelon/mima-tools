@@ -1,14 +1,14 @@
-IAR = technique-1
+.reg IAR technique-1
 
 ; This file demonstrates a few techniques for jumping to an address
 ; stored in the ACC.
 
 ; A few variables
 jump-instruction: JMP 0
-tmp:              LIT 0
+tmp: .lit 0
 
 ; Jumping by setting the RA and then returning
-100:
+.org 100
 technique-1:
   LDC technique-2
   STRA
@@ -16,13 +16,13 @@ technique-1:
 
 ; Jumping by writing a JMP instruction to a memory location and then
 ; jumping to that (aka. almost self-modifying code)
-200:
+.org 200
 technique-2:
   LDC end
   OR jump-instruction
   STV tmp
   JMP tmp
 
-300:
+.org 300
 end:
   HALT
