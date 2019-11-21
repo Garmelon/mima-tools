@@ -27,9 +27,9 @@ lLabel = lexeme $ try $ labelName <* symbol ":"
 
 lStatement :: Parser (Statement Address)
 lStatement =
-      SDirective <$> lDirective <* lNewlines
-  <|> SRawInstruction <$> lRawInstruction <* lNewlines
-  <|> SLabel <$> lLabel <* many lNewline
+      try (SDirective <$> lDirective <* lNewlines)
+  <|> try (SRawInstruction <$> lRawInstruction <* lNewlines)
+  <|>     (SLabel <$> lLabel <* many lNewline)
 
 lStatements :: Parser [WithOffset (Statement Address)]
 lStatements = many (withOffset lStatement)
