@@ -1,0 +1,15 @@
+00000: zero
+00001: one
+00002: tmp1
+00003: max-number
+00004: current-number
+00005: ptr
+00006: main
+00009: main-loop
+00018: main-loop-end
+00019: fib
+00029: fib-ret-0
+0002c: fib-ret-1
+0002f: fib-continue
+00060: fib-cleanup
+0012c: number-array

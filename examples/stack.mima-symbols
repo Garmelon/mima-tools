@@ -1,0 +1,10 @@
+00000: tmp1
+00001: tmp2
+00002: tmp3
+00003: tmp4
+00004: tmp5
+00064: main
+000c8: caller
+0012c: callee
+0013c: callee-loop
+00146: callee-loop-end
