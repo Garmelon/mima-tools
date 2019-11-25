@@ -177,9 +177,13 @@ interestingAddresses = do
   env <- ask
   let conf = feConf env
       s = feState env
-  pure $ if fcShowRegisterFlags conf
-    then Set.fromList [msIAR s, msRA s, msSP s, msFP s]
-    else Set.empty
+      regAddrs = if fcShowRegisterFlags conf
+        then Set.fromList [msIAR s, msRA s, msSP s, msFP s]
+        else Set.empty
+      labelAddrs = if fcShowLabels conf
+        then Map.keysSet $ feLabels env
+        else Set.empty
+  pure $ Set.union regAddrs labelAddrs
   
 getAddresses :: FormatReader [MimaAddress]
 getAddresses = do
