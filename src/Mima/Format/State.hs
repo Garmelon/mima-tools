@@ -28,6 +28,8 @@ import qualified Data.Text as T
 
 import           Mima.Flag
 import           Mima.Format.Common
+import           Mima.Format.Instruction
+import           Mima.Instruction
 import           Mima.Label
 import           Mima.State
 import           Mima.Word
@@ -138,6 +140,25 @@ fWord a = do
       formats = (dec ++ hex ++ bin) <*> pure a
   pure $ "{" <> T.intercalate ", " formats <> "}"
 
+{- Instructions and Labels -}
+
+fLabels :: Set.Set LabelName -> T.Text
+fLabels = mconcat . map (<> ": ") . Set.toAscList
+
+fDecoration :: MimaAddress -> Formatter
+fDecoration a = do
+  env <- ask
+  let conf = feConf env
+      -- Labels
+      labels = Map.findWithDefault Set.empty a $ feLabels env
+      labelsStr = if fcShowLabels conf then fLabels labels else ""
+      -- Instruction
+      word = readAt a $ msMemory $ feState env
+      instrStr = case wordToInstruction word of
+        Left _  -> ""
+        Right i -> if fcShowInstructions conf then formatInstruction i else ""
+  pure $ labelsStr <> instrStr
+
 {- Memory -}
 
 fMemoryLn :: MimaAddress -> Formatter
@@ -148,7 +169,8 @@ fMemoryLn a = do
   flags <- fFlags a
   addr <- fAddress a
   word <- fWord w
-  pure $ flags <> addr <> " " <> word <> "\n"
+  deco <- fDecoration a
+  pure $ flags <> addr <> " " <> word <> " " <> deco <> "\n"
 
 interestingAddresses :: FormatReader (Set.Set MimaAddress)
 interestingAddresses = do

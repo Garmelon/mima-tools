@@ -4,6 +4,7 @@ module Mima.Format.Common
   ( toBin
   , toDec
   , toHex
+  , negative
   , chunkedBy
   , chunkyBin
   , chunkyDec
@@ -31,6 +32,14 @@ toDec = T.pack . show
 
 toHex :: (Integral a, Show a) => a -> T.Text
 toHex a = T.pack $ showHex a ""
+
+-- | @'negative' a@ interprets @a@ as @a - 'maxBound'@ if @a@ is greater than
+-- @'maxBound' `div` 2@, and as a positive number otherwise. 'minBound' is
+-- ignored.
+negative :: (Integral a, Bounded a, Show a) => (a -> T.Text) -> a -> T.Text
+negative f a
+  | a > maxBound `div` 2 = "-" <> f (-(a - maxBound))
+  | otherwise            = f a
 
 chunkedBy :: T.Text -> Int -> T.Text -> T.Text
 chunkedBy sep n = T.reverse . T.intercalate sep . T.chunksOf n . T.reverse
