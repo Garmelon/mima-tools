@@ -1,0 +1,22 @@
+; This program computes 'val1 - val2' and stores the result in memory again.
+
+; Set the IAR to the instruction at the 'start' label
+.reg IAR start
+
+; Prepare the input and output
+val1:   .lit 24
+val2:   .lit 13
+result: .lit 0
+
+; First, we load and negate val2
+start:
+LDV val2
+NOT
+ADC 1
+
+; Then, we can add val1 and store the result
+ADD val1
+STV result
+
+; Don't forget to halt, or the MiMa will run until the IAR hits the maximum address.
+HALT
