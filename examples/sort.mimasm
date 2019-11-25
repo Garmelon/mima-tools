@@ -1,0 +1,108 @@
+; This example sorts an array of numbers. That array is conveniently placed
+; starting at address 0x0, which makes testing its lower bound easier. It is
+; based on an exercise, hence the arbitrary-seeming addresses for temporary
+; variables, as well as the code itself.
+;
+; It demonstrates most of the assembler directives (including flags) in a
+; non-trivial environment.
+
+.org 0x0
+.arr [1, 7, 3, 4, 5, 2, 9, 8, 6, 0]
+
+.org 0x40
+last_entry: .lit 9
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+.org 0x80 ; temporary variables from 0x80 to 0xFF
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Constants
+.flagon r ; readonly
+one:       .lit 1
+minus_one: .lit -1
+.flagoff r
+
+; Variables
+tmp: .lit 0
+selection_index: .lit 0
+max_find_index: .lit 0
+max_index: .lit 0
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+.org 0x100 ; The beginning of the program
+.reg IAR 0x100
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+.flagon er ; executable, readonly
+
+; selection_index = last_entry;
+LDV last_entry
+STV selection_index
+
+; while (selection_index >= 0) {
+selection_loop:
+LDV selection_index
+JMN selection_loop_exit
+  
+    ; max_find_index = selection_index;
+    STV max_find_index ; Prepare loop variable
+    ; max_index = selection_index;
+    STV max_index
+
+    ; while (--max_find_index >= 0) {
+    max_find_loop:
+    ;; Decrement loop variable
+    LDV max_find_index
+    ADD minus_one
+    ;; If we've reached the end, jump to the end of the loop
+    JMN max_find_loop_exit
+    STV max_find_index
+    
+        ;; This section calculates the condition for the following if statement and
+        ;; places it in the accumulator register.
+        ; tmp = mem[max_find_index];
+        LDIV max_find_index
+        STV tmp
+        ; acc = -mem[max_index];
+        LDIV max_index
+        NOT
+        ADD one
+        ; acc += tmp;
+        ADD tmp ; contains [max_find_index]
+        ; Now: acc == mem[max_find_index] - mem[max_index]
+
+        ; if (mem[max_find_index] >= mem[max_index]) {
+        JMN max_find_loop_no_new_value
+
+            ; max_index = max_find_index;
+            LDV max_find_index
+            STV max_index
+
+        ; }
+        max_find_loop_no_new_value:
+  
+    ; }
+    JMP max_find_loop
+    max_find_loop_exit:
+
+    ; tmp = mem[selection_index];
+    LDIV selection_index
+    STV tmp
+    ; mem[selection_index] = mem[max_index];
+    LDIV max_index
+    STIV selection_index
+    ; mem[max_index] = tmp;
+    LDV tmp
+    STIV max_index
+
+    ; selection_index--;
+    LDV selection_index
+    ADD minus_one
+    STV selection_index
+
+; }
+JMP selection_loop
+selection_loop_exit:
+
+; Aaand we're done
+HALT
+.flagoff er
