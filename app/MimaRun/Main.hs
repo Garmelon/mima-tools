@@ -112,7 +112,7 @@ loadFlags :: Settings -> Run (Flags (MimaAddress -> Bool))
 loadFlags settings = do
   let file = getFlagFile settings
   printFile "flags" file
-  mRawFlags <- loadFile readFlagFile file
+  mRawFlags <- loadFile' readFlagFile file
   pure $ case mRawFlags of
     Nothing       -> noFlags
     Just flagSpec -> interpretFlagSpec $ getFlagSpec flagSpec
@@ -121,7 +121,7 @@ loadSymbols :: Settings -> Run LabelSpec
 loadSymbols settings = do
   let file = getSymbolFile settings
   printFile "symbols" file
-  fromMaybe noLabels <$> loadFile readSymbolFile file
+  fromMaybe noLabels <$> loadFile' readSymbolFile file
 
 {- Other functions -}
 
@@ -154,7 +154,6 @@ printState ms flags labels settings = do
   lift $ putStrLn "Dump of MiMa state:"
   lift $ T.putStrLn $ formatState formatEnv
 
--- TODO exception handling
 main :: IO ()
 main = doRun_ $ do
   settings <- lift $ execParser opts

@@ -6,10 +6,13 @@ module Mima.IO
   , doRun
   , doRun_
   , tryRun
-  , File(..)
   , readTextFile
+  , writeTextFile
   , loadFile
+  , storeFile
+  , File(..)
   , loadFile'
+  , storeFile'
   ) where
 
 import           Control.Monad.Trans.Class
@@ -42,21 +45,39 @@ tryRun r = do
       lift $ putStrLn e
       pure Nothing
 
+handleOpenFileError :: FilePath -> IOError -> IO (Either String a)
+handleOpenFileError filepath e = if isRelevantError
+  then pure $ Left $ "Can't open file " <> filepath <> ": " <> ioeGetErrorString e
+  else ioError e
+  where
+    isRelevantError = isAlreadyInUseError e || isDoesNotExistError e || isPermissionError e
+
+readTextFile :: FilePath -> Run T.Text
+readTextFile filepath = do
+  eitherContent <- lift $ catchIOError (Right <$> T.readFile filepath) (handleOpenFileError filepath)
+  except eitherContent
+
+writeTextFile :: FilePath -> T.Text -> Run ()
+writeTextFile filepath content = do
+  result <- lift $ catchIOError (Right <$> T.writeFile filepath content) (handleOpenFileError filepath)
+  except result
+
+loadFile :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> FilePath -> Run a
+loadFile f path = do
+  content <- readTextFile path
+  case f path content of
+    Left errorBundle -> throwE $ errorBundlePretty errorBundle
+    Right result     -> pure result
+
+-- To have a consistent naming scheme
+storeFile :: FilePath -> T.Text -> Run ()
+storeFile = writeTextFile
+
 data File
   = NoFile
   | OptionalFile FilePath
   | RequiredFile FilePath
   deriving (Show)
-
-readTextFile :: FilePath -> Run T.Text
-readTextFile filepath = do
-  eitherContent <- lift $ catchIOError (Right <$> T.readFile filepath) handleError
-  except eitherContent
-  where
-    isRelevantError e = isAlreadyInUseError e || isDoesNotExistError e || isPermissionError e
-    handleError e = if isRelevantError e
-      then pure $ Left $ "Can't load file " ++ filepath ++ ": " ++ ioeGetErrorString e
-      else ioError e -- This error does not concern us
 
 loadTextFile :: File -> Run (Maybe (FilePath, T.Text))
 loadTextFile NoFile              = pure Nothing
@@ -67,8 +88,8 @@ loadTextFile (RequiredFile path) = do
   content <- readTextFile path
   pure $ Just (path, content)
 
-loadFile :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> File -> Run (Maybe a)
-loadFile f file = do
+loadFile' :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> File -> Run (Maybe a)
+loadFile' f file = do
   mContent <- loadTextFile file
   case mContent of
     Nothing              -> pure Nothing
@@ -76,9 +97,7 @@ loadFile f file = do
       Left errorBundle -> throwE $ errorBundlePretty errorBundle
       Right result     -> pure $ Just result
 
-loadFile' :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> FilePath -> Run a
-loadFile' f path = do
-  content <- readTextFile path
-  case f path content of
-    Left errorBundle -> throwE $ errorBundlePretty errorBundle
-    Right result     -> pure result
+storeFile' :: File -> T.Text -> Run ()
+storeFile' NoFile              _       = pure ()
+storeFile' (OptionalFile path) content = () <$ tryRun (writeTextFile path content)
+storeFile' (RequiredFile path) content = writeTextFile path content
