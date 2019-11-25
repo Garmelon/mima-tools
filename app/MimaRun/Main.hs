@@ -1,8 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import           Control.Monad
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Except
+import           Data.Maybe
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Options.Applicative
 import           System.FilePath
@@ -14,6 +17,7 @@ import           Mima.Label
 import           Mima.Load
 import           Mima.Options
 import           Mima.Parse.FlagFile
+import           Mima.Parse.SymbolFile
 import           Mima.State
 import           Mima.Util
 import           Mima.Word
@@ -32,6 +36,26 @@ data Settings = Settings
   , quiet      :: Bool
   , formatConf :: FormatConfig
   } deriving (Show)
+
+getFlagFile :: Settings -> File
+getFlagFile settings =
+  case flagFile settings of
+    Just path -> RequiredFile path
+    Nothing   -> case discover settings of
+      False -> NoFile
+      True  -> OptionalFile discoveredPath
+  where
+    discoveredPath = dropExtension (infile settings) ++ ".mima-flags"
+
+getSymbolFile :: Settings -> File
+getSymbolFile settings =
+  case symbolFile settings of
+    Just path -> RequiredFile path
+    Nothing   -> case discover settings of
+      False -> NoFile
+      True  -> OptionalFile discoveredPath
+  where
+    discoveredPath = dropExtension (infile settings) ++ ".mima-symbols"
 
 {- Command-line parameters -}
 
@@ -74,40 +98,30 @@ settingsParser = Settings
 opts :: ParserInfo Settings
 opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1 <> footer flagFooter
 
-{- Loading the flag file -}
+{- Loading supplemental files -}
 
--- If explicit file name:
---   Try to load file
---   Fail if loading fails
--- Elif discover:
---   Try to load file
---   Use defaults if loading fails
--- Else:
---   Use defaults
-
-loadFlagFile :: FilePath -> Run (Flags (MimaAddress -> Bool))
-loadFlagFile filename = do
-  lift $ putStrLn $ "Loading flags from " ++ filename
-  (interpretFlagSpec . getFlagSpec) <$> loadFile readFlagFile filename
-
-withDefaultFlags :: Run (Flags (MimaAddress -> Bool)) -> Run (Flags (MimaAddress -> Bool))
-withDefaultFlags p = do
-  result <- tryRun p
-  case result of
-    Just flags -> pure flags
-    Nothing -> do
-      lift $ putStrLn "Using default flags"
-      pure noFlags
+printFile :: T.Text -> File -> Run ()
+printFile name NoFile =
+  lift $ T.putStrLn $ "Not loading " <> name <> ": No file specified and discovery turned off"
+printFile name (OptionalFile path) =
+  lift $ T.putStrLn $ "Attempting to load " <> name <> " from " <> T.pack path
+printFile name (RequiredFile path) =
+  lift $ T.putStrLn $ "Loading " <> name <> " from " <> T.pack path
 
 loadFlags :: Settings -> Run (Flags (MimaAddress -> Bool))
-loadFlags settings =
-  case flagFile settings of
-    Just filename -> loadFlagFile filename
-    Nothing -> withDefaultFlags $ if discover settings
-      then loadFlagFile discovered
-      else throwE "File not specified and discovery turned off"
-  where
-    discovered = dropExtension (infile settings) ++ ".mima-flags"
+loadFlags settings = do
+  let file = getFlagFile settings
+  printFile "flags" file
+  mRawFlags <- loadFile readFlagFile file
+  pure $ case mRawFlags of
+    Nothing       -> noFlags
+    Just flagSpec -> interpretFlagSpec $ getFlagSpec flagSpec
+
+loadSymbols :: Settings -> Run LabelSpec
+loadSymbols settings = do
+  let file = getSymbolFile settings
+  printFile "symbols" file
+  fromMaybe noLabels <$> loadFile readSymbolFile file
 
 {- Other functions -}
 
@@ -150,7 +164,7 @@ main = doRun_ $ do
   ms <- loadStateFromFile (infile settings)
 
   flags  <- loadFlags settings
-  labels <- pure noLabels -- loadSymbolFile settings
+  labels <- loadSymbols settings
 
   ms' <- if norun settings
     then pure ms

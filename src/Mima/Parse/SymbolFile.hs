@@ -47,13 +47,12 @@ parseSymbolFile = space *> many lNewline *> (combineLines <$> many lLine) <* eof
 
 {- Weeding -}
 
-wBuildMap :: [(WithOffset LabelName, MimaAddress)]
-          -> Weed WeedError (Map.Map LabelName MimaAddress)
+wBuildMap :: [(WithOffset LabelName, MimaAddress)] -> Weed WeedError LabelSpec
 wBuildMap = foldM helper Map.empty
   where
     helper :: Map.Map LabelName MimaAddress
            -> (WithOffset LabelName, MimaAddress)
-           -> Weed WeedError (Map.Map LabelName MimaAddress)
+           -> Weed WeedError LabelSpec
     helper m (l, addr)
       | name `Map.member` m = do
           harmless $ errorAt l "label was specified more than once"
@@ -62,12 +61,12 @@ wBuildMap = foldM helper Map.empty
         where name = woValue l
 
 weedSymbolFile :: Map.Map MimaAddress [WithOffset LabelName]
-               -> Weed WeedError (Map.Map LabelName MimaAddress)
+               -> Weed WeedError LabelSpec
 weedSymbolFile m =
   let pairs = [(l, a) | (a, ls) <- Map.assocs m, l <- ls]
   in  wBuildMap pairs
 
-readSymbolFile :: FilePath -> T.Text -> Either WeedErrorBundle (Map.Map LabelName MimaAddress)
+readSymbolFile :: FilePath -> T.Text -> Either WeedErrorBundle LabelSpec
 readSymbolFile filename input = do
   unweeded <- parse parseSymbolFile filename input
   runWeedBundle filename input $ weedSymbolFile unweeded

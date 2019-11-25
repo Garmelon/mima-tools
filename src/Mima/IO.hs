@@ -1,12 +1,15 @@
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE TupleSections #-}
 
 module Mima.IO
   ( Run
   , doRun
   , doRun_
   , tryRun
+  , File(..)
   , readTextFile
   , loadFile
+  , loadFile'
   ) where
 
 import           Control.Monad.Trans.Class
@@ -39,6 +42,12 @@ tryRun r = do
       lift $ putStrLn e
       pure Nothing
 
+data File
+  = NoFile
+  | OptionalFile FilePath
+  | RequiredFile FilePath
+  deriving (Show)
+
 readTextFile :: FilePath -> Run T.Text
 readTextFile filepath = do
   eitherContent <- lift $ catchIOError (Right <$> T.readFile filepath) handleError
@@ -49,9 +58,27 @@ readTextFile filepath = do
       then pure $ Left $ "Can't load file " ++ filepath ++ ": " ++ ioeGetErrorString e
       else ioError e -- This error does not concern us
 
-loadFile :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> FilePath -> Run a
-loadFile f filepath = do
-  content <- readTextFile filepath
-  case f filepath content of
-    Left errorBundle  -> throwE $ errorBundlePretty errorBundle
-    Right a           -> pure a
+loadTextFile :: File -> Run (Maybe (FilePath, T.Text))
+loadTextFile NoFile              = pure Nothing
+loadTextFile (OptionalFile path) = do
+  mContent <- tryRun $ readTextFile path
+  pure $ (path,) <$> mContent
+loadTextFile (RequiredFile path) = do
+  content <- readTextFile path
+  pure $ Just (path, content)
+
+loadFile :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> File -> Run (Maybe a)
+loadFile f file = do
+  mContent <- loadTextFile file
+  case mContent of
+    Nothing              -> pure Nothing
+    Just (path, content) -> case f path content of
+      Left errorBundle -> throwE $ errorBundlePretty errorBundle
+      Right result     -> pure $ Just result
+
+loadFile' :: (FilePath -> T.Text -> Either WeedErrorBundle a) -> FilePath -> Run a
+loadFile' f path = do
+  content <- readTextFile path
+  case f path content of
+    Left errorBundle -> throwE $ errorBundlePretty errorBundle
+    Right result     -> pure result
