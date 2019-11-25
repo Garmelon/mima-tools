@@ -18,12 +18,20 @@ import           Mima.Options
 import           Mima.Parse.Assembly
 
 data Settings = Settings
-  { infile     :: String
-  , outfile    :: String
+  { infile     :: FilePath
+  , outfile    :: Maybe FilePath
   , discover   :: Bool
   , flagFile   :: Maybe FilePath
   , symbolFile :: Maybe FilePath
   } deriving (Show)
+
+getOutfile :: Settings -> FilePath
+getOutfile settings =
+  case outfile settings of
+    Just path -> path
+    Nothing   -> discoveredPath
+  where
+    discoveredPath = dropExtension (infile settings) ++ ".mima"
 
 getFlagFile :: Settings -> File
 getFlagFile settings =
@@ -52,12 +60,11 @@ settingsParser = Settings
   <$> strArgument
       (metavar "INFILE"
        <> help "The .mimasm file to assemble")
-  <*> strOption
+  <*> (optional . strOption)
       (long "out"
        <> short 'o'
        <> metavar "OUTFILE"
        <> help "The .mima file to write the assembled result to"
-       <> value "out.mima"
        <> showDefault)
   <*> switchWithNo "discover" True
       "Derive the file names for the .mima-flags and .mima-symbols files from the name of the input file"
@@ -105,8 +112,8 @@ main = doRun_ $ do
   (state, labels, flags) <- loadFile readAssembly (infile settings)
   lift $ putStrLn "Parsing successful"
 
-  lift $ putStrLn $ "Writing result to " ++ outfile settings
-  saveStateToFile (outfile settings) state
+  lift $ putStrLn $ "Writing result to " ++ getOutfile settings
+  saveStateToFile (getOutfile settings) state
 
   saveFlags flags settings
   saveSymbols labels settings
