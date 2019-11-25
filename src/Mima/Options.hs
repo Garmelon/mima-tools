@@ -38,6 +38,8 @@ formatConfigParser = FormatConfig
       "Omit uninteresting addresses"
   <*> hiddenSwitchWithNo "registers" True
       "Show the contents of registers before the memory dump"
+  <*> hiddenSwitchWithNo "memory" True
+      "Show the memory dump"
   <*> hiddenSwitchWithNo "memory-flags" False
       "For each address, show all registers currently pointing to that address"
   <*> hiddenSwitchWithNo "register-flags" True

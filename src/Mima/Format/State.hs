@@ -35,6 +35,7 @@ import           Mima.Word
 data FormatConfig = FormatConfig
   { fcSparse            :: Bool
   , fcShowRegisters     :: Bool
+  , fcShowMemory        :: Bool
   , fcShowMemoryFlags   :: Bool
   , fcShowRegisterFlags :: Bool
   , fcShowAddressDec    :: Bool
@@ -203,11 +204,10 @@ fState :: Formatter
 fState = do
   env <- ask
   let conf = feConf env
-  memText <- ("--< MEMORY >--\n"    <>) <$> fMemory
   regText <- ("--< REGISTERS >--\n" <>) <$> fRegisters
-  pure $ if fcShowRegisters conf
-    then regText <> memText
-    else memText
+  memText <- ("--< MEMORY >--\n"    <>) <$> fMemory
+  pure $ (if fcShowRegisters conf then regText else "")
+    <> (if fcShowMemory conf then memText else "")
 
 formatState :: FormatEnv -> T.Text
 formatState = runReader fState

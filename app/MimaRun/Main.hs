@@ -153,7 +153,6 @@ printState ms flags labels settings = do
   lift $ putStrLn ""
   lift $ putStrLn "Dump of MiMa state:"
   lift $ T.putStrLn $ formatState formatEnv
-  lift $ putStrLn ""
 
 -- TODO exception handling
 main :: IO ()
