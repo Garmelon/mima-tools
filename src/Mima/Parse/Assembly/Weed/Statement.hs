@@ -9,8 +9,10 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text as T
 
 import           Mima.Flag
+import           Mima.Format.FlagFile
 import           Mima.Label
 import           Mima.Parse.Assembly.Common
 import           Mima.Parse.Assembly.Directive
@@ -23,8 +25,8 @@ import           Mima.Word
 data WeedState = WeedState
   { wsAt          :: MimaAddress
   , wsOccupied    :: Bool
-  , wsLastFlagsAt :: MimaAddress
-  , wsOpenFlags   :: Set.Set Char
+  , wsLastFlagsAt :: MimaAddress  -- The address of the last flags change
+  , wsOpenFlags   :: Set.Set Char -- Which flags are currently active
   , wsResult      :: WeedResult Address
   } deriving (Show)
 
@@ -109,7 +111,7 @@ pushFlags newFlags = do
   unless (Set.null wsOpenFlags) $ do
     let r = range wsLastFlagsAt wsAt
     modifyResult (\res -> res{wrFlags = Map.insert r wsOpenFlags (wrFlags res)})
-    modify (\st -> st{wsOpenFlags = newFlags, wsLastFlagsAt = wsAt})
+  modify (\st -> st{wsOpenFlags = newFlags, wsLastFlagsAt = wsAt})
 
 setFlags :: WithOffset a -> Set.Set Char -> SWeed ()
 setFlags thing flags = do
@@ -124,7 +126,7 @@ turnFlagsOn :: WithOffset a -> Set.Set Char -> SWeed ()
 turnFlagsOn thing flags = do
   WeedState{..} <- get
   let newFlags = Set.union wsOpenFlags flags
-  when (flags == newFlags) $
+  when (wsOpenFlags == newFlags) $
     lift $ harmless $ errorAt thing "All flags already active at this address"
   pushFlags newFlags
 
@@ -132,7 +134,7 @@ turnFlagsOff :: WithOffset a -> Set.Set Char -> SWeed ()
 turnFlagsOff thing flags = do
   WeedState{..} <- get
   let newFlags = wsOpenFlags Set.\\ flags
-  when (flags == newFlags) $
+  when (wsOpenFlags == newFlags) $
     lift $ harmless $ errorAt thing "All flags already inactive at this address"
   pushFlags newFlags
 
@@ -160,4 +162,16 @@ weedStep thing =
     SLabel l          -> addLabel thing l
 
 weedStatements :: [WithOffset (Statement Address)] -> Weed WeedError (WeedResult Address)
-weedStatements statements = wsResult <$> execStateT (mapM_ weedStep statements) initialState
+weedStatements statements = do
+  result <- execStateT (mapM_ weedStep statements) initialState
+  when (not $ Set.null $ wsOpenFlags result)
+    $ harmless
+    $ errorAt' (lastOffset statements)
+    $ "Flags were never closed: " ++ T.unpack (formatFlagSet (wsOpenFlags result))
+  pure $ wsResult result
+  where
+    -- Quick and dirty solution, plus I'm too lazy to see if the prelude has a
+    -- safe head
+    lastOffset []    = 0
+    lastOffset [s]   = woOffset s
+    lastOffset (_:s) = lastOffset s

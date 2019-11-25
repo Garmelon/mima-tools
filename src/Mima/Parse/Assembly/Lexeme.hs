@@ -31,7 +31,7 @@ symbol' :: T.Text -> Parser T.Text
 symbol' = L.symbol' space
 
 lSpace :: Parser ()
-lSpace = lexeme space
+lSpace = () <$ lexeme whitespace
 
 lNewline :: Parser ()
 lNewline = void $ lexeme C.newline

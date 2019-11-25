@@ -8,6 +8,7 @@ module Mima.Parse.Assembly.Directive
 
 import qualified Data.Set as Set
 import           Text.Megaparsec
+import qualified Text.Megaparsec.Char as C
 
 import           Mima.Parse.Assembly.Common
 import           Mima.Parse.Assembly.Lexeme
@@ -40,7 +41,7 @@ lSetRegister =
   <|> SetSP  <$> sepBySpace "sp" address
   <|> SetFP  <$> sepBySpace "fp" address
   where
-    sepBySpace name parser = symbol' name *> lSpace *> lexeme parser
+    sepBySpace name parser = C.string' name *> lSpace *> lexeme parser
 
 lWordArray :: Parser [MimaWord]
 lWordArray = open *> (word `sepBy` comma) <* close
@@ -58,8 +59,8 @@ lDirective = label "assembler directive" $
   <|> DOrg <$> directive ".org" (lexeme largeValue)
   <|> DLit <$> directive ".lit" (lexeme word)
   <|> DArr <$> directive ".arr" lWordArray
-  <|> DFlag    <$> directive ".flag"    lFlags
   <|> DFlagOn  <$> directive ".flagon"  lFlags
   <|> DFlagOff <$> directive ".flagoff" lFlags
+  <|> DFlag    <$> directive ".flag"    lFlags
   where
-    directive name parser = symbol name *> lSpace *> parser
+    directive name parser = C.string name *> lSpace *> parser

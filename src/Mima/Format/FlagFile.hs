@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Mima.Format.FlagFile
-  ( formatFlagFile
+  ( formatFlagSet
+  , formatFlagFile
   ) where
 
 import qualified Data.Map as Map
@@ -15,8 +16,8 @@ import           Mima.Word
 fAddress :: MimaAddress -> T.Text
 fAddress = fixWidthHex 5 . toHex
 
-fFlagSet :: Set.Set Char -> T.Text
-fFlagSet = T.pack . Set.toAscList
+formatFlagSet :: Set.Set Char -> T.Text
+formatFlagSet = T.pack . Set.toAscList
 
 fRange :: AddressRange -> T.Text
 fRange r
@@ -27,7 +28,7 @@ fRange r
     upper = upperAddress r
 
 fLine :: (AddressRange, Set.Set Char) -> T.Text
-fLine (r, s) = fRange r <> ": " <> fFlagSet s <> "\n"
+fLine (r, s) = fRange r <> ": " <> formatFlagSet s <> "\n"
 
 formatFlagFile :: RawFlags -> T.Text
 formatFlagFile = mconcat . map fLine . Map.assocs

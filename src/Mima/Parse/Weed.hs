@@ -14,6 +14,7 @@ module Mima.Parse.Weed
   , withOffset
   , errorAt
   , errorAt'
+  , errorsAt'
   , runWeedBundle
   ) where
 
@@ -93,10 +94,13 @@ withOffset :: Parser a -> Parser (WithOffset a)
 withOffset p = WithOffset <$> getOffset <*> p
 
 errorAt :: WithOffset a -> String -> WeedError
-errorAt wo errorMsg = errorAt' wo [errorMsg]
+errorAt wo errorMsg = errorAt' (woOffset wo) errorMsg
 
-errorAt' :: WithOffset a -> [String] -> WeedError
-errorAt' wo = FancyError (woOffset wo) . Set.fromList . map ErrorFail
+errorAt' :: Int -> String -> WeedError
+errorAt' o errorMsg = errorsAt' o [errorMsg]
+
+errorsAt' :: Int -> [String] -> WeedError
+errorsAt' o = FancyError o . Set.fromList . map ErrorFail
 
 runWeedBundle :: FilePath -> T.Text -> Weed WeedError a -> Either WeedErrorBundle a
 runWeedBundle filename input w = case runWeed w of
