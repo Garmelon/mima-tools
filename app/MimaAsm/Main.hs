@@ -3,6 +3,7 @@
 module Main where
 
 import           Control.Monad.Trans.Class
+import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Options.Applicative
@@ -93,10 +94,12 @@ printFile name (RequiredFile path) =
   lift $ T.putStrLn $ "Saving " <> name <> " to " <> T.pack path
 
 saveFlags :: RawFlags -> Settings -> Run ()
-saveFlags flags settings = do
-  let file = getFlagFile settings
-  printFile "flags" file
-  storeFile' file (formatFlagFile flags)
+saveFlags flags settings
+  | Map.null flags = lift $ putStrLn "No flags to save"
+  | otherwise      = do
+      let file = getFlagFile settings
+      printFile "flags" file
+      storeFile' file (formatFlagFile flags)
 
 saveSymbols :: LabelSpec -> Settings -> Run ()
 saveSymbols labels settings = do
