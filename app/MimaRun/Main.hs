@@ -70,7 +70,7 @@ settingsParser = Settings
        <> metavar "OUTFILE"
        <> help "If specified, write the memory dump to this file after execution is finished")
   <*> switchWithNo "discover" True
-      "Try to load .mima-flags and .mima-symbols corresponding to the .mima input file"
+      "Derive the file names for the .mima-flags and .mima-symbols files from the name of the input file"
   <*> (optional . strOption)
       (long "flag-file"
        <> short 'f'
