@@ -6,8 +6,10 @@ module Mima.Parse.Assembly.RawInstruction
   , cookInstruction
   ) where
 
+import           Control.Monad
 import qualified Data.Text as T
 import           Text.Megaparsec
+import qualified Text.Megaparsec.Char as C
 
 import           Mima.Instruction
 import           Mima.Parse.Assembly.Common
@@ -21,7 +23,7 @@ data RawInstruction a
   deriving (Show)
 
 parseByName :: [(T.Text, a)] -> Parser a
-parseByName = foldl (<|>) empty . map (\(name, a) -> a <$ symbol' name)
+parseByName = foldl (<|>) empty . map (\(name, a) -> a <$ C.string' name)
 
 smallOpcode :: Parser SmallOpcode
 smallOpcode = parseByName
@@ -53,25 +55,29 @@ largeOpcode = parseByName
   , ("stsp", STSP)
   , ("ldfp", LDFP)
   , ("stfp", STFP)
-  ]
-
-largeOpcodeWithArgument :: Parser LargeOpcode
-largeOpcodeWithArgument = parseByName
-  [ ("ldrs", LDRS)
+  , ("ldrs", LDRS)
   , ("strs", STRS)
   , ("ldrf", LDRF)
   , ("strf", STRF)
   ]
 
 lRawInstruction :: Parser (RawInstruction Address)
-lRawInstruction = label "instruction" $
-      (RawSmallInstruction <$> smallOpcode <*> addr)
-  <|> (RawLargeInstruction <$> largeOpcode <*> optionalSv)
-  <|> (RawLargeInstruction <$> largeOpcodeWithArgument <*> sv)
+lRawInstruction = label "instruction" $ smallInstruction <|> largeInstruction
   where
-    addr = lexeme space *> lexeme address
-    sv = lexeme space *> lexeme smallValue
-    optionalSv = lexeme (lexeme space *> smallValue <|> pure 0)
+    smallInstruction = do
+      so <- smallOpcode
+      void $ lSpace
+      lv <- lexeme address
+      pure $ RawSmallInstruction so lv
+    largeInstruction = do
+      lo <- largeOpcode
+      if argumentIsOptional lo
+        then do
+          sv <- lexeme (try (lSpace *> smallValue) <|> pure 0)
+          pure $ RawLargeInstruction lo sv
+        else do
+          sv <- lSpace *> lexeme smallValue
+          pure $ RawLargeInstruction lo sv
 
 cookInstruction :: RawInstruction MimaAddress -> Instruction
 cookInstruction (RawSmallInstruction so lv) = SmallInstruction so lv

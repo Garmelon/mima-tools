@@ -3,6 +3,7 @@
 module Mima.Instruction
   ( SmallOpcode(..)
   , LargeOpcode(..)
+  , argumentIsOptional
   , Instruction(..)
   , wordToInstruction
   , instructionToWord
@@ -74,6 +75,22 @@ largeOpcodeNr STRF = 13
 
 largeOpcodeMap :: Map.Map Opcode LargeOpcode
 largeOpcodeMap = Map.fromList [(largeOpcodeNr lo, lo) | lo <- allLargeOpcodes]
+
+argumentIsOptional :: LargeOpcode -> Bool
+argumentIsOptional HALT = True
+argumentIsOptional NOT  = True
+argumentIsOptional RAR  = True
+argumentIsOptional RET  = True
+argumentIsOptional LDRA = True
+argumentIsOptional STRA = True
+argumentIsOptional LDSP = True
+argumentIsOptional STSP = True
+argumentIsOptional LDFP = True
+argumentIsOptional STFP = True
+argumentIsOptional LDRS = False
+argumentIsOptional STRS = False
+argumentIsOptional LDRF = False
+argumentIsOptional STRF = False
 
 data Instruction
   = SmallInstruction !SmallOpcode !LargeValue

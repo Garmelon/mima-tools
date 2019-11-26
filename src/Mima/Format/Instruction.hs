@@ -28,4 +28,7 @@ formatLargeOpcode = T.pack . show
 
 formatInstruction :: Instruction -> T.Text
 formatInstruction (SmallInstruction so lv) = formatSmallOpcode so <> " " <> formatLargeValue lv
-formatInstruction (LargeInstruction lo sv) = formatLargeOpcode lo <> " " <> formatSmallValue sv
+formatInstruction (LargeInstruction lo sv) =
+  if argumentIsOptional lo && sv == 0
+  then formatLargeOpcode lo
+  else formatLargeOpcode lo <> " " <> formatSmallValue sv
