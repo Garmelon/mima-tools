@@ -16,57 +16,29 @@ A set of tools and specifications related to the MiMa
   * [Symbol table file format: `.mima-symbols`](#symbol-table-file-format-mima-symbols)
 * [Conventions](#conventions)
 
-For example MiMa programs, see the [examples folder](examples/).
-
 ## Tools
+
+The basic usage of these tools is as follows:
+
+1. Create and edit an assembly file: `example.mimasm`
+2. Assemble the file: `$ mima-asm example.mimasm`
+3. Execute the resulting file: `$ mima-run example.mima`
+
+For example MiMa programs, see the [examples folder](examples/).
 
 ### mima-run
 
-This program can load and run `.mima` files.
+This tool is a MiMa emulator. It can load and execute `.mima` files. It can also
+load and use the corresponding `.mima-flags` and `.mima-symbols` files.
 
-```
-$ mima-run --help
-Usage: mima-run INFILE [-o|--out OUTFILE] [--nodiscover] [-f|--flags FLAGFILE]
-                [-s|--symbols SYMBOLFILE] [--steps N] [--norun] [-q|--quiet]
-                [--sparse]
-
-Available options:
-  -h,--help                Show this help text
-  INFILE                   The memory dump to load and execute
-  -o,--out OUTFILE         If specified, write the memory dump to this file
-                           after execution is finished
-  --nodiscover             Disable the automatic loading of the .mima-flags and
-                           .mima-symbols files
-  -f,--flags FLAGFILE      A file containing extension memory flags, specified
-                           in the .mima-flags format
-  -s,--symbols SYMBOLFILE  A file containing label names and addresses,
-                           specified in the .mima-symbols format
-  --steps N                How many instructions to execute (if not specified,
-                           runs until HALT or execution exception)
-  --norun                  Don't run the MiMa. Use the initial state for all
-                           further actions. Roughly equivalent to -n 0
-  -q,--quiet               Don't print the memory dump
-  --sparse                 Don't print memory locations containing only 0x000000
-                           in the memory dump
-```
+Basic usage: `mima-run <.mima file> [-n <steps>]`
 
 ### mima-asm
 
-This program can parse `.mimasm` files and convert them to `.mima`
-files. More information and a specification of the `.mimasm` format
-may be coming soon. For example programs, look in the `examples/`
-folder.
+This tool is a MiMa assembler. It can parse `.mimasm` files and convert them to `.mima`
+files. It can also generate the corresponding `.mima-flags` and `.mima-symbols` files.
 
-```
-$ mima-asm --help
-Usage: mima-asm INFILE [-o|--out OUTFILE]
-
-Available options:
-  -h,--help                Show this help text
-  INFILE                   The .mimasm file to assemble
-  -o,--out OUTFILE         The .mima file to write the assembled result
-                           to (default: "out.mima")
-```
+Basic usage: `mima-asm <.mimasm file> [-o <.mima file>]`
 
 ## Specification
 
