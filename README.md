@@ -6,6 +6,7 @@ A set of tools and specifications related to the MiMa
 * [Tools](#tools)
   * [mima-run](#mima-run)
   * [mima-asm](#mima-asm)
+* [Install](#install)
 * [Specification](#specification)
   * [Instructions](#instructions)
   * [Registers](#registers)
@@ -39,6 +40,16 @@ This tool is a MiMa assembler. It can parse `.mimasm` files and convert them to 
 files. It can also generate the corresponding `.mima-flags` and `.mima-symbols` files.
 
 Basic usage: `mima-asm <.mimasm file> [-o <.mima file>]`
+
+## Install
+
+This project uses [stack](https://haskellstack.org). Make sure you have at least
+stack version `2.1`.
+
+To install this project:
+1. Clone the repository
+2. `cd` into the working directory
+3. Run `stack install`
 
 ## Specification
 
