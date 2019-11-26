@@ -42,7 +42,7 @@ getFlagFile settings =
       False -> NoFile
       True  -> OptionalFile discoveredPath
   where
-    discoveredPath = dropExtension (infile settings) ++ ".mima-flags"
+    discoveredPath = dropExtension (getOutfile settings) ++ ".mima-flags"
 
 getSymbolFile :: Settings -> File
 getSymbolFile settings =
@@ -52,7 +52,7 @@ getSymbolFile settings =
       False -> NoFile
       True  -> OptionalFile discoveredPath
   where
-    discoveredPath = dropExtension (infile settings) ++ ".mima-symbols"
+    discoveredPath = dropExtension (getOutfile settings) ++ ".mima-symbols"
 
 {- Command-line parameters -}
 
@@ -81,7 +81,7 @@ settingsParser = Settings
        <> help "A file containing label names and addresses, specified in the .mima-symbols format")
 
 opts :: ParserInfo Settings
-opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1
+opts = info (helper <*> settingsParser) $ fullDesc <> failureCode 1 <> footer flagFooter
 
 {- Saving supplemental files -}
 
