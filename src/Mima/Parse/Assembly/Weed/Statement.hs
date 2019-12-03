@@ -141,15 +141,14 @@ turnFlagsOff thing flags = do
 {- Weeding at a larger scale -}
 
 weedDirective :: WithOffset a -> Directive Address -> SWeed ()
-weedDirective thing d = do
-  case d of
-    DReg sr        -> setRegister thing sr
-    DOrg addr      -> setAddressTo thing addr
-    DLit w         -> addAlmostWord thing (ALiteral w)
-    DArr ws        -> mapM_ (addAlmostWord thing . ALiteral) ws
-    DFlag flags    -> setFlags thing flags
-    DFlagOn flags  -> turnFlagsOn thing flags
-    DFlagOff flags -> turnFlagsOff thing flags
+weedDirective thing d = case d of
+  DReg sr        -> setRegister thing sr
+  DOrg addr      -> setAddressTo thing addr
+  DLit w         -> addAlmostWord thing (ALiteral w)
+  DArr ws        -> mapM_ (addAlmostWord thing . ALiteral) ws
+  DFlag flags    -> setFlags thing flags
+  DFlagOn flags  -> turnFlagsOn thing flags
+  DFlagOff flags -> turnFlagsOff thing flags
 
 weedInstruction :: WithOffset a -> RawInstruction Address -> SWeed ()
 weedInstruction thing i = addAlmostWord thing $ AInstruction i
@@ -164,7 +163,7 @@ weedStep thing =
 weedStatements :: [WithOffset (Statement Address)] -> Weed WeedError (WeedResult Address)
 weedStatements statements = do
   result <- execStateT (mapM_ weedStep statements) initialState
-  when (not $ Set.null $ wsOpenFlags result)
+  unless (Set.null $ wsOpenFlags result)
     $ harmless
     $ errorAt' (lastOffset statements)
     $ "Flags were never closed: " ++ T.unpack (formatFlagSet (wsOpenFlags result))

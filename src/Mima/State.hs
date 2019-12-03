@@ -45,10 +45,10 @@ wordsToMemory = mapToMemory
               . zip [minBound..]
 
 memoryToWords :: MimaMemory -> [MimaWord]
-memoryToWords mem = map (\addr -> readAt addr mem) $ continuousUsedAddresses mem
+memoryToWords mem = map (`readAt` mem) $ continuousUsedAddresses mem
 
 maxAddress :: MimaMemory -> MimaAddress
-maxAddress (MimaMemory m) = fromMaybe minBound $ fst <$> Map.lookupMax m
+maxAddress (MimaMemory m) = maybe minBound fst $ Map.lookupMax m
 
 usedAddresses :: MimaMemory -> [MimaAddress]
 usedAddresses (MimaMemory m) = Map.keys m
@@ -178,7 +178,7 @@ step' :: Flags (MimaAddress -> Bool) -> MimaState -> Either AbortReason MimaStat
 step' flags ms = runExecution flags $ step ms
 
 run :: Flags (MimaAddress -> Bool) -> MimaState -> (MimaState, AbortReason, Integer)
-run f ms = helper 0 ms
+run f = helper 0
   where
     helper completed s =
       case step' f s of
@@ -186,7 +186,7 @@ run f ms = helper 0 ms
         Right s' -> helper (completed + 1) s'
 
 runN :: Flags (MimaAddress -> Bool) -> Integer -> MimaState -> (MimaState, Maybe AbortReason, Integer)
-runN f n ms = helper 0 ms
+runN f n = helper 0
   where
     helper completed s =
       if completed >= n

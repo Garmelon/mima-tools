@@ -41,9 +41,9 @@ getFlagFile :: Settings -> File
 getFlagFile settings =
   case flagFile settings of
     Just path -> RequiredFile path
-    Nothing   -> case discover settings of
-      False -> NoFile
-      True  -> OptionalFile discoveredPath
+    Nothing   -> if discover settings
+      then OptionalFile discoveredPath
+      else NoFile
   where
     discoveredPath = dropExtension (infile settings) ++ ".mima-flags"
 
@@ -51,9 +51,9 @@ getSymbolFile :: Settings -> File
 getSymbolFile settings =
   case symbolFile settings of
     Just path -> RequiredFile path
-    Nothing   -> case discover settings of
-      False -> NoFile
-      True  -> OptionalFile discoveredPath
+    Nothing   -> if discover settings
+      then OptionalFile discoveredPath
+      else NoFile
   where
     discoveredPath = dropExtension (infile settings) ++ ".mima-symbols"
 

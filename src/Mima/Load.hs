@@ -29,11 +29,11 @@ instance Binary (LD MimaWord) where
 
 instance Binary (LD LargeValue) where
   put = put . LD . largeValueToWord . unLD
-  get = (LD . getLargeValue) <$> unLD <$> get
+  get = LD . getLargeValue . unLD <$> get
 
 instance Binary (LD MimaMemory) where
   put = mapM_ (put . LD) . memoryToWords . unLD
-  get = (LD . wordsToMemory . map unLD) <$> many get
+  get = LD . wordsToMemory . map unLD <$> many get
 
 instance Binary (LD MimaState) where
   put ldms = do

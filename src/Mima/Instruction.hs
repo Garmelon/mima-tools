@@ -112,8 +112,8 @@ parseSmallInstruction mw = do
 parseSmallOpcode :: Opcode -> Either T.Text SmallOpcode
 parseSmallOpcode w = case smallOpcodeMap Map.!? w of
   Just oc -> pure oc
-  Nothing -> Left $ "Unknown small opcode " <> toDec w <> " (" <> (fixWidthHex 1 $ toHex w)
-                     <> ", " <> (fixWidthBin 4 $ toBin w) <> ")"
+  Nothing -> Left $ "Unknown small opcode " <> toDec w <> " (" <> fixWidthHex 1 (toHex w)
+                     <> ", " <> fixWidthBin 4 (toBin w) <> ")"
 
 parseLargeInstruction :: MimaWord -> Either T.Text Instruction
 parseLargeInstruction mw = do
@@ -125,8 +125,8 @@ parseLargeInstruction mw = do
 parseLargeOpcode :: Opcode -> Either T.Text LargeOpcode
 parseLargeOpcode w = case largeOpcodeMap Map.!? w of
   Just oc -> pure oc
-  Nothing -> Left $ "Unknown large opcode " <> toDec w <> " (" <> (fixWidthHex 1 $ toHex w)
-                     <> ", " <> (fixWidthBin 4 $ toBin w) <> ")"
+  Nothing -> Left $ "Unknown large opcode " <> toDec w <> " (" <> fixWidthHex 1 (toHex w)
+                     <> ", " <> fixWidthBin 4 (toBin w) <> ")"
 
 instructionToWord :: Instruction -> MimaWord
 instructionToWord (SmallInstruction so lv) = wordFromSmallOpcode (smallOpcodeNr so) lv

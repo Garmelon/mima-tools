@@ -66,7 +66,7 @@ lRawInstruction = label "instruction" $ smallInstruction <|> largeInstruction
   where
     smallInstruction = do
       so <- smallOpcode
-      void $ lSpace
+      void lSpace
       lv <- lexeme address
       pure $ RawSmallInstruction so lv
     largeInstruction = do

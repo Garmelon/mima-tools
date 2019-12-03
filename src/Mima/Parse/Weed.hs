@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Mima.Parse.Weed
   ( Weed
   , runWeed
@@ -94,7 +92,7 @@ withOffset :: Parser a -> Parser (WithOffset a)
 withOffset p = WithOffset <$> getOffset <*> p
 
 errorAt :: WithOffset a -> String -> WeedError
-errorAt wo errorMsg = errorAt' (woOffset wo) errorMsg
+errorAt wo = errorAt' (woOffset wo)
 
 errorAt' :: Int -> String -> WeedError
 errorAt' o errorMsg = errorsAt' o [errorMsg]

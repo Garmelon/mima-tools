@@ -4,6 +4,7 @@ module Main where
 
 import           Control.Monad.Trans.Class
 import qualified Data.Map as Map
+import           Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Options.Applicative
@@ -27,10 +28,7 @@ data Settings = Settings
   } deriving (Show)
 
 getOutfile :: Settings -> FilePath
-getOutfile settings =
-  case outfile settings of
-    Just path -> path
-    Nothing   -> discoveredPath
+getOutfile settings = fromMaybe discoveredPath $ outfile settings
   where
     discoveredPath = dropExtension (infile settings) ++ ".mima"
 
@@ -38,9 +36,9 @@ getFlagFile :: Settings -> File
 getFlagFile settings =
   case flagFile settings of
     Just path -> RequiredFile path
-    Nothing   -> case discover settings of
-      False -> NoFile
-      True  -> OptionalFile discoveredPath
+    Nothing   -> if discover settings
+      then OptionalFile discoveredPath
+      else NoFile
   where
     discoveredPath = dropExtension (getOutfile settings) ++ ".mima-flags"
 
@@ -48,9 +46,9 @@ getSymbolFile :: Settings -> File
 getSymbolFile settings =
   case symbolFile settings of
     Just path -> RequiredFile path
-    Nothing   -> case discover settings of
-      False -> NoFile
-      True  -> OptionalFile discoveredPath
+    Nothing   -> if discover settings
+      then OptionalFile discoveredPath
+      else NoFile
   where
     discoveredPath = dropExtension (getOutfile settings) ++ ".mima-symbols"
 

@@ -36,7 +36,7 @@ almostWordToWord (ALiteral w)     = w
 
 formatAssembly :: WeedResult MimaAddress -> (MimaState, LabelSpec, RawFlags)
 formatAssembly res =
-  let mem = fmap almostWordToWord $ wrMemory res
+  let mem = almostWordToWord <$> wrMemory res
       s = registersToState (wrRegisters res) (mapToMemory mem)
   in  (s, wrLabels res, wrFlags res)
 

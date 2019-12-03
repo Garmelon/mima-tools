@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Mima.Flag
@@ -122,7 +121,7 @@ getFlagSpec af =
       isInSet f s = flagChar f `Set.member` s
       getAddressSpec :: Flag -> AddressSpec
       getAddressSpec f = rangesToSpec $ map fst $ filter (isInSet f . snd) $ Map.assocs af
-  in  pure getAddressSpec <*> rawFlags
+  in  getAddressSpec <$> rawFlags
 
 interpretFlagSpec :: FlagSpec -> Flags (MimaAddress -> Bool)
 interpretFlagSpec spec =

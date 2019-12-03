@@ -113,9 +113,9 @@ fAddress :: MimaAddress -> Formatter
 fAddress a = do
   env <- ask
   let conf = feConf env
-      dec = if fcShowAddressDec conf then [fAddressDec] else []
-      hex = if fcShowAddressHex conf then [fAddressHex] else []
-      bin = if fcShowAddressBin conf then [fAddressBin] else []
+      dec = [fAddressDec | fcShowAddressDec conf]
+      hex = [fAddressHex | fcShowAddressHex conf]
+      bin = [fAddressBin | fcShowAddressBin conf]
       formats = (dec ++ hex ++ bin) <*> pure a
   pure $ "[" <> T.intercalate ", " formats <> "]"
 
@@ -134,9 +134,9 @@ fWord :: MimaWord -> Formatter
 fWord a = do
   env <- ask
   let conf = feConf env
-      dec = if fcShowWordDec conf then [fWordDec] else []
-      hex = if fcShowWordHex conf then [fWordHex] else []
-      bin = if fcShowWordBin conf then [fWordBin] else []
+      dec = [fWordDec | fcShowWordDec conf]
+      hex = [fWordHex | fcShowWordHex conf]
+      bin = [fWordBin | fcShowWordBin conf]
       formats = (dec ++ hex ++ bin) <*> pure a
   pure $ "{" <> T.intercalate ", " formats <> "}"
 

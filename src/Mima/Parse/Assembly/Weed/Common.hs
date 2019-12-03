@@ -34,8 +34,8 @@ emptyRegisters = Registers
   }
 
 registersToState :: Registers MimaAddress -> MimaMemory -> MimaState
-registersToState r mem = MimaState (fromMaybe 0 $ rIAR r) (fromMaybe 0 $ rACC r)
-  (fromMaybe 0 $ rRA r) (fromMaybe 0 $ rSP r) (fromMaybe 0 $ rFP r) mem
+registersToState r = MimaState (fromMaybe 0 $ rIAR r) (fromMaybe 0 $ rACC r)
+  (fromMaybe 0 $ rRA r) (fromMaybe 0 $ rSP r) (fromMaybe 0 $ rFP r)
 
 data AlmostWord a
   = AInstruction (RawInstruction a)
