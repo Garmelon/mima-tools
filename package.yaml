@@ -16,6 +16,8 @@ dependencies:
   - OddWord >= 1.0 && < 1.1
   - containers
   - text
+  - aeson
+  - unordered-containers
 
 library:
   source-dirs: src
