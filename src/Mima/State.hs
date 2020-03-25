@@ -25,7 +25,6 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
 import           Data.Bits
 import qualified Data.Map.Strict as Map
-import           Data.Maybe
 import qualified Data.Text as T
 
 import           Mima.Flag
@@ -99,7 +98,7 @@ runExecution :: Flags (MimaAddress -> Bool) -> Execution a -> Either AbortReason
 runExecution f exec = runExcept $ runReaderT exec f
 
 failWith :: AbortReason -> Execution a
-failWith = lift . except . Left
+failWith = lift . throwE
 
 incrementIAR :: MimaState -> Execution MimaState
 incrementIAR ms =

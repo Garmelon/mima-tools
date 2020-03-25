@@ -107,8 +107,6 @@ parseSmallInstruction mw = do
   so <- parseSmallOpcode (getSmallOpcode mw)
   pure $ SmallInstruction so (getLargeValue mw)
 
--- Assumes that all bits not part of the opcode are zeroed. The opcode
--- uses the lowest four bits.
 parseSmallOpcode :: Opcode -> Either T.Text SmallOpcode
 parseSmallOpcode w = case smallOpcodeMap Map.!? w of
   Just oc -> pure oc
@@ -120,8 +118,6 @@ parseLargeInstruction mw = do
   lo <- parseLargeOpcode (getLargeOpcode mw)
   pure $ LargeInstruction lo (getSmallValue mw)
 
--- Assumes that all bits not part of the opcode are zeroed. The opcode
--- uses the lowest four bits.
 parseLargeOpcode :: Opcode -> Either T.Text LargeOpcode
 parseLargeOpcode w = case largeOpcodeMap Map.!? w of
   Just oc -> pure oc
