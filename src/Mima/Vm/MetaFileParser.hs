@@ -7,14 +7,18 @@ module Mima.Vm.MetaFileParser
   , LocalData
   ) where
 
+import           Control.Applicative
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Map.Strict     as Map
-import qualified Data.Text           as T
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.Map.Strict              as Map
+import qualified Data.Text                    as T
 import           Data.Traversable
-import           Mima.Vm.Word
 import           Numeric
+import           Text.ParserCombinators.ReadP
+
+import           Mima.Format
+import           Mima.Vm.Word
 
 data Metadata = Metadata
  { global :: GlobalData
@@ -39,22 +43,29 @@ instance ToJSON Metadata where
 parseLocalData :: Value -> Parser LocalData
 parseLocalData = withObject "local" $ \obj -> do
   v <- for (HM.toList obj) unpackInner
-  return $ Map.fromList v
+  return $ Map.fromList (concat v)
   where
     unpackInner (key, nestedValue) = do
-      address <- readMimaAddress (T.unpack key)
+      (start, end) <- readMimaAddress (T.unpack key)
       innerValues <- parseJSON nestedValue
-      return (address, innerValues)
+      return $ zip [start..end] (repeat innerValues)
 
-readMimaAddress :: String -> Parser MimaAddress
-readMimaAddress input = case readHex input of
-  [(num, "")] -> boundedAddress input num
-  _           -> fail $ "Couldn't read " ++ input ++ "' as a mima address!"
+readMimaAddress :: String -> Parser (MimaAddress, MimaAddress)
+readMimaAddress input = case readP_to_S readFromHex input of
+  [(addresses, [])] -> pure addresses
+  xs                -> fail $ "'" ++ input ++ "' is no address, " ++ show xs
 
-boundedAddress :: String -> Integer -> Parser MimaAddress
-boundedAddress rawInput value =
+readFromHex :: ReadP (MimaAddress,MimaAddress)
+readFromHex = (range <|> single) <* eof
+  where
+    range = (,) <$> (boundedAddress <* char '-') <*> boundedAddress
+    single = (\x -> (x, x)) <$> boundedAddress
+
+boundedAddress :: ReadP MimaAddress
+boundedAddress = do
+  value <- readS_to_P readHex :: ReadP Integer
   if value > maxVal || value < minVal then
-    fail $ "Value '" ++ rawInput ++ "' out of bounds for an address."
+    fail $ T.unpack $ "Value '" <> toHex value <> "' out of bounds for an address."
   else
     pure $ fromIntegral value
   where
@@ -64,4 +75,4 @@ boundedAddress rawInput value =
 localDataToJson :: LocalData -> Value
 localDataToJson outerMap = object $ map formatInnerEntry (Map.toList outerMap)
   where
-    formatInnerEntry (address, innerMap) = T.pack (showHex address "") .= toJSON innerMap
+    formatInnerEntry (address, innerMap) = fixWidthHex 5 (toHex address) .= toJSON innerMap
