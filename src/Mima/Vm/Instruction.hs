@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Mima.Instruction
+module Mima.Vm.Instruction
   ( SmallOpcode(..)
   , LargeOpcode(..)
   , argumentIsOptional
@@ -10,11 +10,10 @@ module Mima.Instruction
   ) where
 
 import qualified Data.Map.Strict as Map
-import qualified Data.Text as T
+import qualified Data.Text       as T
 
-import           Mima.Format.Common
-import           Mima.Util
-import           Mima.Word
+import           Mima.Format
+import           Mima.Vm.Word
 
 data SmallOpcode = LDC | LDV | STV | ADD | AND | OR | XOR | EQL
                  | JMP | JMN | LDIV | STIV | CALL | ADC

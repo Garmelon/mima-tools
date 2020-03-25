@@ -1,67 +1,21 @@
-name:                mima-tools
-version:             0.1.0.0
-github:              "Garmelon/mima-tools"
-license:             MIT
-author:              "Garmelon"
-maintainer:          "joscha@plugh.de"
-copyright:           "2019 Garmelon"
+name: mima-tools
+version: 0.1.0.0
+license: MIT
+author: Garmelon <joscha@plugh.de>
+copyright: 2019-2020 Garmelon
+
+synopsis: Tools for the MiMa (MinimalMaschine)
+description: Please see the README on GitHub at <https://github.com/Garmelon/mima-tools#readme>
+github: Garmelon/mima-tools
 
 extra-source-files:
 - README.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/Garmelon/mima-tools#readme>
-
 dependencies:
-- base >= 4.7 && < 5
-- ansi-terminal
-- binary
-- bytestring
-- containers
-- filepath
-- megaparsec
-- optparse-applicative
-- text
-- transformers
-- OddWord >= 1.0 && < 1.1
+  - base >= 4.7 && < 5
+  - OddWord >= 1.0 && < 1.1
+  - containers
+  - text
 
 library:
   source-dirs: src
-
-executables:
-  mima-run:
-    main: Main.hs
-    source-dirs: app/MimaRun
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - mima-tools
-
-  mima-asm:
-    main: Main.hs
-    source-dirs: app/MimaAsm
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - mima-tools
-
-tests:
-  mima-tools-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - mima-tools

@@ -10,7 +10,7 @@ packages:
       size: 476
       sha256: a4d203a05501dd71ee7f5af5f670f74361fdc28d88ffc4e0c39828c36d661e82
   original:
-    hackage: OddWord-1.0.2.0@sha256:5d848ff5db2c0457ce37ccc8898ce2b6b880a1c6a78e5b16841328a7404ff5ee,1888
+    hackage: OddWord-1.0.2.0
 snapshots:
 - completed:
     size: 491372

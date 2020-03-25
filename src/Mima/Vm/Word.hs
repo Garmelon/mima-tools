@@ -1,4 +1,4 @@
-module Mima.Word
+module Mima.Vm.Word
   (
   -- * Types
     MimaWord
@@ -52,7 +52,7 @@ wordToBytes mw =
 
 boolToWord :: Bool -> MimaWord
 boolToWord False = zeroBits
-boolToWord True = complement zeroBits
+boolToWord True  = complement zeroBits
 
 largeValueToWord :: LargeValue -> MimaWord
 largeValueToWord = fromIntegral
