@@ -16,6 +16,7 @@ dependencies:
   - OddWord >= 1.0 && < 1.1
   - aeson
   - aeson-pretty
+  - binary
   - bytestring
   - containers
   - text

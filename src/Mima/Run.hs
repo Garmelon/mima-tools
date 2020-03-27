@@ -17,7 +17,7 @@ module Mima.Run
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
-import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as BS
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as T
 import           System.IO.Error

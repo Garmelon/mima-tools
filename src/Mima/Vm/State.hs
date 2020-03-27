@@ -10,7 +10,10 @@ module Mima.Vm.State
   , runN
   ) where
 
+import           Control.Applicative
+import           Data.Binary
 import           Data.Bits
+import           Data.Foldable
 import qualified Data.Text           as T
 
 import           Mima.Format
@@ -26,6 +29,47 @@ data MimaState = MimaState
   , msFp     :: !MimaAddress
   , msMemory :: !MimaMemory
   } deriving (Show)
+
+putWord :: MimaWord -> Put
+putWord w = putList [b1, b2, b3]
+  where
+    (b1, b2, b3) = wordToBytes w
+
+putAddress :: MimaAddress -> Put
+putAddress = putWord . largeValueToWord
+
+putMemory :: MimaMemory -> Put
+putMemory = traverse_ putWord . memoryToWords
+
+getWord :: Get MimaWord
+getWord = do
+  b1 <- get
+  b2 <- get
+  b3 <- get
+  pure $ bytesToWord (b1, b2, b3)
+
+getAddress :: Get MimaAddress
+getAddress = getLargeValue <$> getWord
+
+getMemory :: Get MimaMemory
+getMemory = wordsToMemory <$> many getWord
+
+instance Binary MimaState where
+  put ms = do
+    putAddress $ msIar ms
+    putWord $ msAcc ms
+    putAddress $ msRa ms
+    putAddress $ msSp ms
+    putAddress $ msFp ms
+    putMemory $ msMemory ms
+
+  get = MimaState
+    <$> getAddress
+    <*> getWord
+    <*> getAddress
+    <*> getAddress
+    <*> getAddress
+    <*> getMemory
 
 basicState :: MimaMemory -> MimaState
 basicState = MimaState zeroBits zeroBits zeroBits zeroBits zeroBits
