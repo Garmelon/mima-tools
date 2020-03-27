@@ -5,6 +5,7 @@ module Mima.Run
   -- * The 'Run' monad
     Run
   , run
+  , runOrExit
   , throw
   , catch
   , handle
@@ -18,8 +19,10 @@ module Mima.Run
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import qualified Data.ByteString.Lazy       as BS
+import           Data.Maybe
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as T
+import           System.Exit
 import           System.IO.Error
 
 newtype Run a = Run (ExceptT T.Text IO a)
@@ -27,6 +30,16 @@ newtype Run a = Run (ExceptT T.Text IO a)
 
 run :: Run a -> IO (Either T.Text a)
 run (Run e) = runExceptT e
+
+runOrExit :: Int -> Run () -> IO ()
+runOrExit exitCode r = do
+  result <- run r
+  case result of
+    Right () -> pure ()
+    Left e -> do
+      putStrLn "Encountered an exception:"
+      T.putStrLn e
+      exitWith $ ExitFailure exitCode
 
 throw :: T.Text -> Run a
 throw = Run . throwE
@@ -43,8 +56,10 @@ isRelevantError e = isAlreadyInUseError e || isDoesNotExistError e || isPermissi
 formatRelevantError :: IOError -> Maybe T.Text
 formatRelevantError e
   | isRelevantError e = Just $ T.pack $
-    "Can't open file " <> ioeGetLocation e <> ": " <> ioeGetErrorString e
+    "Can't open file " <> fileName <> ": " <> ioeGetErrorString e
   | otherwise = Nothing
+  where
+    fileName = fromMaybe "<unknown>" $ ioeGetFileName e
 
 protect :: IO a -> Run a
 protect m = do

@@ -6,8 +6,8 @@ module Mima.Vm.State
   , basicState
   , AbortReason(..)
   , step
-  , run
-  , runN
+  , execute
+  , executeN
   ) where
 
 import           Control.Applicative
@@ -157,16 +157,16 @@ step ms = do
     (SmallInstruction so lv) -> doSmallOpcode so lv ms'
     (LargeInstruction lo sv) -> doLargeOpcode lo sv ms'
 
-run :: MimaState -> (MimaState, AbortReason, Integer)
-run = helper 0
+execute :: MimaState -> (MimaState, AbortReason, Integer)
+execute = helper 0
   where
     helper completed s =
       case step s of
         Left e   -> (s, e, completed)
         Right s' -> helper (completed + 1) s'
 
-runN :: Integer -> MimaState -> (MimaState, Maybe AbortReason, Integer)
-runN n = helper 0
+executeN :: Integer -> MimaState -> (MimaState, Maybe AbortReason, Integer)
+executeN n = helper 0
   where
     helper completed s =
       if completed >= n

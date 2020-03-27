@@ -32,7 +32,7 @@ loadMimaState :: FilePath -> Run MimaState
 loadMimaState path = do
   bs <- readFileBS path
   case B.decodeOrFail bs of
-    Right ("", 0, a) -> pure a
+    Right ("", _, a) -> pure a
     Right _          -> throw "invalid file format"
     Left (_, _, e)   -> throw $ T.pack e
 

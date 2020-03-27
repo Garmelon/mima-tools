@@ -3,16 +3,16 @@ module Mima.MimaRun.Options
   , parserInfo
   ) where
 
-import Options.Applicative
+import           Options.Applicative
 
 data Options = Options
   { inputFile :: FilePath
-  , steps :: Maybe Integer
+  , steps     :: Maybe Integer
   } deriving (Show)
 
 parser :: Parser Options
 parser = Options
-  <$> strOption
+  <$> strArgument
       (  help "The .mima file to use"
       <> metavar "INPUTFILE"
       )
