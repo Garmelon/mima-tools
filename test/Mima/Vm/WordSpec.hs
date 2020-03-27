@@ -44,7 +44,7 @@ spec = do
       largeValueToWord 0x12345 `shouldBe` 0x012345
       largeValueToWord 0xABCDE `shouldBe` 0x0ABCDE
       largeValueToWord 0xFFFFF `shouldBe` 0x0FFFFF
-    it "is inverted by getLargeValue" $ property $ \x ->
+    it "is reversed by getLargeValue" $ property $ \x ->
       let lv = fromInteger x
       in  getLargeValue (largeValueToWord lv) `shouldBe` lv
 
@@ -69,7 +69,7 @@ spec = do
       wordFromSmallOpcode 0xF 0x00000 `shouldBe` 0xF00000
       wordFromSmallOpcode 0xF 0xFFFFF `shouldBe` 0xFFFFFF
       wordFromSmallOpcode 0x1 0x23456 `shouldBe` 0x123456
-    it "is reverted by getLargeOpcode and getSmallValue" $ property $ \(x, y) ->
+    it "is reversed by getLargeOpcode and getSmallValue" $ property $ \(x, y) ->
       let so = fromInteger x
           lv = fromInteger y
           word = wordFromSmallOpcode so lv
@@ -82,7 +82,7 @@ spec = do
       wordFromLargeOpcode 0xF 0x0000 `shouldBe` 0xFF0000
       wordFromLargeOpcode 0xF 0xFFFF `shouldBe` 0xFFFFFF
       wordFromLargeOpcode 0x1 0x2345 `shouldBe` 0xF12345
-    it "is reverted by getLargeOpcode and getSmallValue" $ property $ \(x, y) ->
+    it "is reversed by getLargeOpcode and getSmallValue" $ property $ \(x, y) ->
       let lo = fromInteger x
           sv = fromInteger y
           word = wordFromLargeOpcode lo sv
