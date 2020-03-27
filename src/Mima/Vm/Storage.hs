@@ -1,6 +1,6 @@
 module Mima.Vm.Storage
   (
-  -- * Methods for loading/storing Metadata
+  -- * Methods for loading/storing 'Metadata'
     loadMetadata
   , saveMetadata
   -- * Test methods
@@ -14,12 +14,11 @@ import qualified Data.Text                as T
 import           Mima.Run
 import           Mima.Vm.Metadata
 
--- | Loads 'Metadata' from a given file path
+-- | Loads 'Metadata' from a given file path.
 loadMetadata :: FilePath -> Run Metadata
 loadMetadata path = do
   file <- readFileBS path
-  let decoded = eitherDecode (BSL.fromStrict file) :: Either String Metadata
-  case decoded of
+  case eitherDecode $ BSL.fromStrict file of
     Left msg       -> throw (T.pack msg)
     Right metadata -> pure metadata
 
@@ -27,7 +26,7 @@ loadMetadata path = do
 saveMetadata :: FilePath -> Metadata -> Run ()
 saveMetadata path metadata = writeFileBS path (BSL.toStrict (encodePretty metadata))
 
--- | A garbage test method that resds the input file, parses it and writes the
+-- | A garbage test method that reads the input file, parses it and writes the
 --   prettified result back in the output file.
 --
 -- Can be used with the example file:
