@@ -9,12 +9,13 @@ description: Please see the README on GitHub at <https://github.com/Garmelon/mim
 github: Garmelon/mima-tools
 
 extra-source-files:
-- README.md
+  - README.md
 
 dependencies:
   - base >= 4.7 && < 5
   - OddWord >= 1.0 && < 1.1
   - aeson
+  - aeson-pretty
   - bytestring
   - containers
   - text

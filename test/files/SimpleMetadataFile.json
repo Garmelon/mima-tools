@@ -1,0 +1,13 @@
+{
+  "global": {
+    "some-data": "some value"
+  },
+  "local": [
+    {
+      "at": 20,
+      "info": {
+        "src-line": 200
+      }
+    }
+  ]
+}
