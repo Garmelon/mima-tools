@@ -24,3 +24,12 @@ dependencies:
 
 library:
   source-dirs: src
+
+tests:
+  spec:
+    source-dirs: test
+    main: Spec.hs
+    dependencies:
+      - QuickCheck
+      - hspec
+      - mima-tools
