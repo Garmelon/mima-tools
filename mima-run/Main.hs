@@ -1,4 +1,10 @@
 module Main where
 
+import Options.Applicative
+
+import Mima.MimaRun.Options
+
 main :: IO ()
-main = putStrLn "In the beginning, there was nothing."
+main = do
+  opts <- execParser parserInfo
+  putStrLn $ "The options are: " ++ show opts
