@@ -4,6 +4,7 @@ module Mima.Vm.Metadata
   ( MetaInfo
   , Range(..)
   , getMetaInfo
+  , getAddresses
   , Metadata(..)
   ) where
 
@@ -22,6 +23,10 @@ data Range
   = RangeAt     MetaInfo MimaAddress
   | RangeFromTo MetaInfo MimaAddress MimaAddress
   deriving Show
+
+getAddresses :: Range -> [MimaAddress]
+getAddresses (RangeAt _ address)        = [address]
+getAddresses (RangeFromTo _ start stop) = [start..stop]
 
 getMetaInfo :: Range -> MetaInfo
 getMetaInfo (RangeAt     info _)   = info

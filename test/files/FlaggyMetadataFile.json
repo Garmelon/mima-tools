@@ -1,0 +1,24 @@
+{
+  "global": {
+    "some-data": "some value"
+  },
+  "local": [
+    {
+      "at": 20,
+      "info": {
+        "breakpoint": true,
+        "readonly": true,
+        "executable": "probably"
+      }
+    },
+    {
+      "start": 1,
+      "stop": 5,
+      "info": {
+        "breakpoint": false,
+        "readonly": true,
+        "executable": "yes"
+      }
+    }
+  ]
+}
