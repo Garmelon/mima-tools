@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Mima.Vm.FlagSpec (spec) where
 
 import qualified Data.Aeson.Types as A
@@ -22,8 +23,7 @@ breakpointFlags addresses = Flags mempty mempty (Set.fromList addresses)
 
 executableBetween :: Bool -> MimaAddress -> MimaAddress -> Metadata
 executableBetween executable start stop = Metadata mempty
-  [
-    RangeFromTo (Map.fromList [("executable", A.Bool executable)]) start stop
+  [ RangeFromTo (Map.singleton "executable" (A.Bool executable)) start stop
   ]
 
 overlappingExecutableFlags :: Flags
@@ -44,13 +44,13 @@ tripleOverlappingExecutableFlags = flags
 
 spec :: Spec
 spec = do
-  describe "readonly getter works" $
+  describe "readonlyAt" $
     it "returns the correct set value" $ do
       readonlyAt (readOnlyFlags [2, 5]) 2 `shouldBe` True
       readonlyAt (readOnlyFlags [2, 5]) 5 `shouldBe` True
       readonlyAt (readOnlyFlags [2, 5]) 3 `shouldBe` False
 
-  describe "execute getter works" $ do
+  describe "executeAt" $ do
     it "returns the correct set value" $ do
       executableAt (executeFlags [20, 200]) 2 `shouldBe` False
       executableAt (executeFlags [20, 200]) 20 `shouldBe` True
@@ -58,29 +58,28 @@ spec = do
     it "returns true if none are set" $ property $ \x ->
       let word = fromInteger x
       in executableAt mempty word
+    context "with nested ranges" $ do
+      it "returns the correct value for unaffected areas" $ do
+        let flags = overlappingExecutableFlags
+        executableAt flags  1 `shouldBe` True
+        executableAt flags  3 `shouldBe` True
+        executableAt flags  7 `shouldBe` True
+        executableAt flags 20 `shouldBe` True
+      it "returns the correct value for affected areas" $ do
+        let flags = overlappingExecutableFlags
+        executableAt flags 4 `shouldBe` False
+        executableAt flags 5 `shouldBe` False
+        executableAt flags 6 `shouldBe` False
+      it "returns the correct value for triple affected areas" $ do
+        let flags = tripleOverlappingExecutableFlags
+        executableAt flags  1 `shouldBe` True
+        executableAt flags  4 `shouldBe` False
+        executableAt flags  5 `shouldBe` True
+        executableAt flags  6 `shouldBe` True
+        executableAt flags 20 `shouldBe` True
 
-  describe "breakpoint getter works" $
+  describe "breakpointAt" $
     it "returns the correct set value" $ do
       breakpointAt (breakpointFlags [20, 200]) 2 `shouldBe` False
       breakpointAt (breakpointFlags [20, 200]) 20 `shouldBe` True
       breakpointAt (breakpointFlags [20, 200]) 200 `shouldBe` True
-
-  context "with nested ranges" $ do
-    it "returns the correct value for unaffected areas" $ do
-      let flags = overlappingExecutableFlags
-      executableAt flags  1 `shouldBe` True
-      executableAt flags  3 `shouldBe` True
-      executableAt flags  7 `shouldBe` True
-      executableAt flags 20 `shouldBe` True
-    it "returns the correct value for affected areas" $ do
-      let flags = overlappingExecutableFlags
-      executableAt flags 4 `shouldBe` False
-      executableAt flags 5 `shouldBe` False
-      executableAt flags 6 `shouldBe` False
-    it "returns the correct value for triple affected areas" $ do
-      let flags = tripleOverlappingExecutableFlags
-      executableAt flags  1 `shouldBe` True
-      executableAt flags  4 `shouldBe` False
-      executableAt flags  5 `shouldBe` True
-      executableAt flags  6 `shouldBe` True
-      executableAt flags 20 `shouldBe` True

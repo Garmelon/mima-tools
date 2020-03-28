@@ -3,8 +3,8 @@
 module Mima.Vm.Metadata
   ( MetaInfo
   , Range(..)
-  , getMetaInfo
   , getAddresses
+  , getMetaInfo
   , Metadata(..)
   ) where
 
@@ -25,7 +25,7 @@ data Range
   deriving Show
 
 getAddresses :: Range -> [MimaAddress]
-getAddresses (RangeAt _ address)        = [address]
+getAddresses (RangeAt     _ address)    = [address]
 getAddresses (RangeFromTo _ start stop) = [start..stop]
 
 getMetaInfo :: Range -> MetaInfo
