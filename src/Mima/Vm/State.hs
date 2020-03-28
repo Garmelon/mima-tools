@@ -11,12 +11,16 @@ module Mima.Vm.State
   ) where
 
 import           Control.Applicative
+import           Control.Monad
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader
 import           Data.Binary
 import           Data.Bits
 import           Data.Foldable
-import qualified Data.Text           as T
+import qualified Data.Text                  as T
 
 import           Mima.Format
+import           Mima.Vm.Flags
 import           Mima.Vm.Instruction
 import           Mima.Vm.Memory
 import           Mima.Vm.Word
@@ -80,6 +84,7 @@ data AbortReason
   | InvalidNextIarAddress
   | AddressNotExecutable
   | AddressReadOnly
+  | BreakpointAtAddress
   deriving (Show)
 
 instance ToText AbortReason where
@@ -88,14 +93,16 @@ instance ToText AbortReason where
   toText InvalidNextIarAddress  = "Exception: Can't increment IAR: Invalid next address"
   toText AddressNotExecutable   = "Exception: Address is not flagged as excutable"
   toText AddressReadOnly        = "Exception: Address is flagged as read-only"
+  toText BreakpointAtAddress    = "Breakpoint hit"
 
-{- A fancy monad that helps with stepping the MimaState -}
+type Execution = ReaderT Flags (Either AbortReason)
 
-type Execution a = Either AbortReason a
+throw :: AbortReason -> Execution a
+throw = lift . Left
 
 incrementIar :: MimaState -> Execution MimaState
 incrementIar ms
-  | addr >= maxBound = Left InvalidNextIarAddress
+  | addr >= maxBound = throw InvalidNextIarAddress
   | otherwise = pure ms{msIar = succ addr}
   where
     addr = msIar ms
@@ -104,10 +111,13 @@ decodeInstruction :: MimaWord -> Execution Instruction
 decodeInstruction word =
   case wordToInstruction word of
     Right instruction -> pure instruction
-    Left errorMsg     -> Left $ InvalidInstruction errorMsg
+    Left errorMsg     -> throw $ InvalidInstruction errorMsg
 
 storeValue :: MimaAddress -> MimaState -> Execution MimaState
-storeValue addr ms = pure ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
+storeValue addr ms = do
+  flags <- ask
+  when (readonlyAt flags addr) $ throw AddressReadOnly
+  pure ms{msMemory = writeAt addr (msAcc ms) (msMemory ms)}
 
 loadValue :: MimaAddress -> MimaState -> Execution MimaState
 loadValue addr ms = pure ms{msAcc = readAt addr (msMemory ms)}
@@ -132,7 +142,7 @@ doSmallOpcode CALL addr ms@MimaState{..} = pure ms{msRa = msIar, msIar = addr}
 doSmallOpcode ADC  lv   ms@MimaState{..} = pure ms{msAcc = msAcc + signedLargeValueToWord lv}
 
 doLargeOpcode :: LargeOpcode -> SmallValue -> MimaState -> Execution MimaState
-doLargeOpcode HALT _  _                = Left Halted
+doLargeOpcode HALT _  _                = throw Halted
 doLargeOpcode NOT  _  ms@MimaState{..} = pure ms{msAcc = complement msAcc}
 doLargeOpcode RAR  _  ms@MimaState{..} = pure ms{msAcc = rotateR msAcc 1}
 doLargeOpcode RET  _  ms@MimaState{..} = pure ms{msIar = msRa}
@@ -147,30 +157,34 @@ doLargeOpcode STRS sv ms@MimaState{..} = storeValue (msSp + signedSmallValueToLa
 doLargeOpcode LDRF sv ms@MimaState{..} = loadValue  (msFp + signedSmallValueToLargeValue sv) ms
 doLargeOpcode STRF sv ms@MimaState{..} = storeValue (msFp + signedSmallValueToLargeValue sv) ms
 
-step :: MimaState -> Execution MimaState
-step ms = do
+step :: Flags -> MimaState -> Either AbortReason MimaState
+step flags ms = flip runReaderT flags $ do
   let addr = msIar ms
-      word = readAt addr (msMemory ms)
+  when (breakpointAt flags addr) $ throw BreakpointAtAddress
+  unless (executableAt flags addr) $ throw AddressNotExecutable
+
+  let word = readAt addr (msMemory ms)
   instruction <- decodeInstruction word
+
   ms' <- incrementIar ms
   case instruction of
     (SmallInstruction so lv) -> doSmallOpcode so lv ms'
     (LargeInstruction lo sv) -> doLargeOpcode lo sv ms'
 
-execute :: MimaState -> (MimaState, AbortReason, Integer)
-execute = helper 0
+execute :: Flags -> MimaState -> (MimaState, AbortReason, Integer)
+execute flags = helper 0
   where
     helper completed s =
-      case step s of
+      case step flags s of
         Left e   -> (s, e, completed)
         Right s' -> helper (completed + 1) s'
 
-executeN :: Integer -> MimaState -> (MimaState, Maybe AbortReason, Integer)
-executeN n = helper 0
+executeN :: Integer -> Flags -> MimaState -> (MimaState, Maybe AbortReason, Integer)
+executeN n flags = helper 0
   where
     helper completed s =
       if completed >= n
       then (s, Nothing, completed)
-      else case step s of
+      else case step flags s of
         Left e   -> (s, Just e, completed)
         Right s' -> helper (completed + 1) s'

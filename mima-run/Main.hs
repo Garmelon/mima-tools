@@ -16,12 +16,12 @@ main = runOrExit 2 $ do
   initialState <- loadMimaState $ inputFile opts
   finalState <- liftIO $ case steps opts of
     Nothing -> do
-      let (finalState, abortReason, stepsMade) = execute initialState
+      let (finalState, abortReason, stepsMade) = execute mempty initialState
       putStrLn $ "Stopped after " ++ show stepsMade ++ " steps, reason:"
       T.putStrLn $ toText abortReason
       pure finalState
     Just n -> do
-      let (finalState, mAbortReason, stepsMade) = executeN n initialState
+      let (finalState, mAbortReason, stepsMade) = executeN n mempty initialState
       putStrLn $ "Stopped after " ++ show stepsMade ++ " steps, reason:"
       case mAbortReason of
         Nothing          -> putStrLn "Ran out of steps"
