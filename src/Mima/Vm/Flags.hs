@@ -60,7 +60,7 @@ flagsFromMetadata metadata =
   Flags (flagSet "readonly") (flagSet "executable") (flagSet "breakpoint")
   where
     ranges = mdLocal metadata
-    rangesToMap key = mconcat . map (rangeToMap key) $ ranges
+    rangesToMap key = mconcat . reverse . map (rangeToMap key) $ ranges
     flagSet = Map.keysSet . Map.filter valueToBool . rangesToMap
 
 rangeToMap :: T.Text -> Range -> Map.Map MimaAddress A.Value
