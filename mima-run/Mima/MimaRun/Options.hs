@@ -3,9 +3,9 @@ module Mima.MimaRun.Options
   , parserInfo
   ) where
 
-import           Data.List
 import           Data.Maybe
 import           Options.Applicative
+import           System.FilePath
 
 data Options = Options
   { inputFile    :: FilePath
@@ -14,11 +14,9 @@ data Options = Options
   } deriving (Show)
 
 createOptions :: FilePath -> Maybe FilePath -> Maybe Integer -> Options
-createOptions inFile metaFile = Options inFile resolvedMetadataFile
+createOptions inFile metaFile = Options inFile resolvedMetaFile
   where
-    inputRenamedToMeta = removeExtension inFile ++ "mima-meta"
-    resolvedMetadataFile = fromMaybe inputRenamedToMeta metaFile
-    removeExtension = dropWhileEnd (/= '.')
+    resolvedMetaFile = fromMaybe (replaceExtension inFile "mima-meta") metaFile
 
 parser :: Parser Options
 parser = createOptions
@@ -27,7 +25,7 @@ parser = createOptions
       <> metavar "INPUTFILE"
       )
   <*> (optional . strOption)
-      ( short 'm'
+      (  short 'm'
       <> long "metadata"
       <> help "The metadata file to use"
       <> metavar "METAFILE"
@@ -38,5 +36,6 @@ parser = createOptions
       <> help "Maximum number of steps to execute"
       <> metavar "STEPS"
       )
+
 parserInfo :: ParserInfo Options
 parserInfo = info (parser <**> helper) (failureCode 1)

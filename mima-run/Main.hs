@@ -14,9 +14,9 @@ import           Mima.Vm.State
 import           Mima.Vm.Storage
 
 loadMetadataOrEmpty :: FilePath -> Run Metadata
-loadMetadataOrEmpty path = catch (loadMetadata path) (\error -> do
-  liftIO $ putStrLn $ "Metafile could not be loaded. " ++ T.unpack error
-  pure mempty)
+loadMetadataOrEmpty path = catch (loadMetadata path) $ \e -> do
+  liftIO $ putStrLn $ "Metafile could not be loaded. " ++ T.unpack e
+  pure mempty
 
 main :: IO ()
 main = runOrExit 2 $ do
@@ -38,5 +38,6 @@ main = runOrExit 2 $ do
         Nothing          -> putStrLn "Ran out of steps"
         Just abortReason -> T.putStrLn $ toText abortReason
       pure finalState
+
   liftIO $ putStrLn ""
   liftIO $ print finalState

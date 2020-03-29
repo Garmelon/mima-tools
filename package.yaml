@@ -19,6 +19,7 @@ dependencies:
   - binary
   - bytestring
   - containers
+  - filepath
   - optparse-applicative
   - text
   - transformers
