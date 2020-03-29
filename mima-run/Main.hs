@@ -15,7 +15,7 @@ import           Mima.Vm.Storage
 
 loadMetadataOrEmpty :: FilePath -> Run Metadata
 loadMetadataOrEmpty path = catch (loadMetadata path) $ \e -> do
-  liftIO $ putStrLn $ "Metafile could not be loaded. " ++ T.unpack e
+  liftIO $ putStrLn $ "Metafile could not be loaded: " ++ T.unpack e
   pure mempty
 
 main :: IO ()

@@ -19,7 +19,6 @@ module Mima.Run
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import qualified Data.ByteString.Lazy       as BS
-import           Data.Maybe
 import qualified Data.Text                  as T
 import qualified Data.Text.IO               as T
 import           System.Exit
@@ -50,25 +49,12 @@ catch (Run a) f = Run $ catchE a (\x -> let (Run result) = f x in result)
 handle :: (T.Text -> Run a) -> Run a -> Run a
 handle = flip catch
 
-isRelevantError :: IOError -> Bool
-isRelevantError e = isAlreadyInUseError e || isDoesNotExistError e || isPermissionError e
-
-formatRelevantError :: IOError -> Maybe T.Text
-formatRelevantError e
-  | isRelevantError e = Just $ T.pack $
-    "Can't open file " <> fileName <> ": " <> ioeGetErrorString e
-  | otherwise = Nothing
-  where
-    fileName = fromMaybe "<unknown>" $ ioeGetFileName e
-
 protect :: IO a -> Run a
 protect m = do
   result <- liftIO $ tryIOError m
   case result of
     Right a -> pure a
-    Left e -> case formatRelevantError e of
-      Nothing  -> liftIO $ ioError e
-      Just msg -> throw msg
+    Left e -> throw $ T.pack $ show e
 
 readFileT :: FilePath -> Run T.Text
 readFileT = protect . T.readFile
