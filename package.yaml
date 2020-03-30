@@ -20,6 +20,7 @@ dependencies:
   - bytestring
   - containers
   - filepath
+  - megaparsec
   - optparse-applicative
   - text
   - transformers
