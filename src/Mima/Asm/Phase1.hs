@@ -20,17 +20,18 @@ module Mima.Asm.Phase1
   ) where
 
 import           Control.Monad
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                 as A
+import qualified Data.ByteString.Lazy       as BS
 import           Data.Char
 import           Data.Foldable
 import           Data.Monoid
 import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as T
 import           Data.Void
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
-import           Text.Megaparsec.Char.Lexer
+import           Text.Megaparsec.Char.Lexer hiding (space)
 
 import qualified Mima.Vm.Instruction        as Vm
 import qualified Mima.Vm.Word               as Vm
@@ -292,6 +293,43 @@ registerDirective =
   singleDirective RegRa  "RA"  location <|>
   singleDirective RegSp  "SP"  location <|>
   singleDirective RegFp  "FP"  location
+
+directive :: Parser (Directive Span)
+directive =
+  singleDirective Reg ".reg" registerDirective <|>
+  singleDirective Org ".org" address           <|>
+  singleDirective Lit ".lit" mimaWord          <|>
+  arr                                          <|>
+  metaStart Meta                               <|>
+  metaStart MetaStart                          <|>
+  singleDirective MetaStop ".meta-stop" name
+  where
+    arr = do
+      (outerSpan, (regSpan, words)) <- withSpan $ do
+        (dirSpan, _) <- withSpan $ chunk ".arr"
+        space1
+        words <- between (char '[') (char ']') $
+          sepBy1 mimaWord (char ',' *> space)
+        pure (dirSpan, words)
+
+      pure $ Arr outerSpan regSpan words
+    metaStart f = do
+      (outerSpan, (regSpan, metaName, jsonValue)) <- withSpan $ do
+        (dirSpan, _) <- withSpan $ chunk ".meta"
+        space1
+        metaName <- name
+        space1
+
+        (valueSpan, rawJsonValue) <- withSpan $ do
+          metaValueBS <- BS.fromStrict . T.encodeUtf8
+            <$> takeWhile1P (Just "json value") (/= '\n')
+          case A.eitherDecode metaValueBS of
+            Left msg    -> fail msg
+            Right value -> pure value
+
+        pure (dirSpan, metaName, JsonValue valueSpan rawJsonValue)
+
+      pure $ f outerSpan regSpan metaName jsonValue
 
 parsePhase1 :: Parser Phase1
 parsePhase1 = undefined
