@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Mima.Asm.Phase1
   ( Onion(..)
   -- * Types
@@ -17,14 +19,21 @@ module Mima.Asm.Phase1
   , parsePhase1
   ) where
 
-import qualified Data.Aeson          as A
+import           Control.Monad
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Writer
+import qualified Data.Aeson                 as A
 import           Data.Char
-import qualified Data.Text           as T
+import           Data.Foldable
+import           Data.Monoid
+import qualified Data.Text                  as T
 import           Data.Void
 import           Text.Megaparsec
+import           Text.Megaparsec.Char
+import           Text.Megaparsec.Char.Lexer
 
-import qualified Mima.Vm.Instruction as Vm
-import qualified Mima.Vm.Word        as Vm
+import qualified Mima.Vm.Instruction        as Vm
+import qualified Mima.Vm.Word               as Vm
 
 {-
 <value>       := <word> | <address>
@@ -58,7 +67,7 @@ instance Onion Name where
 
 data Address a
   = AddressAbsolute a Vm.MimaAddress
-  | AddressRelative a Int
+  | AddressRelative a Integer
   deriving (Show)
 
 instance Onion Address where
@@ -110,20 +119,22 @@ instance Onion Instruction where
   peel (SmallInstruction a _ _) = a
   peel (LargeInstruction a _ _) = a
 
+-- | The first @a@ parameter represents the span of the whole thing. The second
+-- @a@ parameter represents the span of the directive literal (e. g. @.org@).
 data RegisterDirective a
-  = RegIar a (Location a)
-  | RegAcc a (MimaWord a)
-  | RegRa a (Location a)
-  | RegSp a (Location a)
-  | RegFp a (Location a)
+  = RegIar a a (Location a)
+  | RegAcc a a (MimaWord a)
+  | RegRa  a a (Location a)
+  | RegSp  a a (Location a)
+  | RegFp  a a (Location a)
   deriving (Show)
 
 instance Onion RegisterDirective where
-  peel (RegIar a _) = a
-  peel (RegAcc a _) = a
-  peel (RegRa  a _) = a
-  peel (RegSp  a _) = a
-  peel (RegFp  a _) = a
+  peel (RegIar a _ _) = a
+  peel (RegAcc a _ _) = a
+  peel (RegRa  a _ _) = a
+  peel (RegSp  a _ _) = a
+  peel (RegFp  a _ _) = a
 
 data JsonValue a = JsonValue a A.Value
   deriving (Show)
@@ -167,27 +178,120 @@ instance Onion AsmToken where
 
 {- Parsers -}
 
-type Parser = Parsec Void T.Text
+type Phase1 = [AsmToken Span]
+type Parser = WriterT (Endo Phase1) (Parsec Void T.Text)
 
 data Span = Span SourcePos SourcePos
   deriving (Show)
 
-withSpan :: Parser a -> Parser (a, Span)
+addTokens :: [AsmToken Span] -> Parser ()
+addTokens = tell . Endo . (++)
+
+addToken :: AsmToken Span -> Parser ()
+addToken t = addTokens [t]
+
+withSpan :: Parser a -> Parser (Span, a)
 withSpan f = do
   start <- getSourcePos
   result <- f
   stop <- getSourcePos
-  pure (result, Span start stop)
+  pure (Span start stop, result)
 
 name :: Parser (Name Span)
-name = do
-  (a, s) <- withSpan $ do
-    firstChar <- satisfy isLower <?> "lowercase character"
-    otherChars <- takeWhileP (Just "alphanumeric character") isAlphaNum
-    pure $ T.pack [firstChar] <> otherChars
-  pure $ Name s a
+name = fmap (uncurry Name) $ withSpan $ do
+  firstChar <- satisfy isLower <?> "lowercase character"
+  otherChars <- takeWhileP (Just "alphanumeric character") isAlphaNum
+  pure $ T.pack [firstChar] <> otherChars
 
-type Phase1 = [AsmToken Span]
+number :: (Num a) => Parser a
+number =
+  (chunk "0b" *> binary) <|>
+  (chunk "0o" *> octal) <|>
+  (chunk "0x" *> hexadecimal) <|>
+  decimal
+
+signedNumber :: (Num a) => Parser a
+signedNumber = signed empty number
+
+boundedNumber :: (Bounded n, Num n) => Parser n
+boundedNumber = do
+  n <- signedNumber :: Parser Integer
+  when (n < minVal || n > maxVal) $ fail $
+    "invalid range: " ++
+    show n ++ " is not between " ++
+    show minVal ++ " and " ++ show maxVal
+  pure $ fromInteger n
+  where
+    maxVal = toInteger (maxBound :: Vm.MimaWord)
+    minVal = -(maxVal + 1)
+
+address :: Parser (Address Span)
+address =
+  fmap (uncurry AddressAbsolute) (withSpan boundedNumber) <|>
+  fmap (uncurry AddressRelative) (withSpan signedNumber)
+
+location :: Parser (Location Span)
+location = (LocationAddress <$> address) <|> (LocationLabel <$> name)
+
+smallOpcode :: Parser (SmallOpcode Span)
+smallOpcode = asum $ map parseOpcode [minBound..maxBound]
+  where
+    parseOpcode o = do
+      (s, _) <- withSpan $ chunk $ T.pack $ show o
+      pure $ SmallOpcode s o
+
+largeOpcode :: Parser (LargeOpcode Span)
+largeOpcode = asum $ map parseOpcode [minBound..maxBound]
+  where
+    parseOpcode o = do
+      (s, _) <- withSpan $ chunk $ T.pack $ show o
+      pure $ LargeOpcode s o
+
+mimaWord :: Parser (MimaWord Span)
+mimaWord =
+  (uncurry WordRaw <$> withSpan boundedNumber) <|> (WordLocation <$> location)
+
+smallValue :: Parser (SmallValue Span)
+smallValue = uncurry SmallValue <$> withSpan boundedNumber
+
+instruction :: Parser (Instruction Span)
+instruction = small <|> large
+  where
+    small = do
+      start <- getSourcePos
+      so <- smallOpcode
+      space1
+      loc <- location
+      stop <- getSourcePos
+      pure $ SmallInstruction (Span start stop) so loc
+    large = do
+      start <- getSourcePos
+      lo <- largeOpcode
+      space1
+      sv <- smallValue
+      stop <- getSourcePos
+      pure $ LargeInstruction (Span start stop) lo sv
+
+singleDirective
+  :: (Span -> Span -> a -> b Span)
+  -> T.Text
+  -> Parser a
+  -> Parser (b Span)
+singleDirective f t p = do
+  (outerSpan, (nameSpan, a)) <- withSpan $ do
+    (nameSpan, _) <- withSpan $ chunk t
+    space1
+    a <- p
+    pure (nameSpan, a)
+  pure $ f outerSpan nameSpan a
+
+registerDirective :: Parser (RegisterDirective Span)
+registerDirective =
+  singleDirective RegIar "IAR" location <|>
+  singleDirective RegAcc "ACC" mimaWord <|>
+  singleDirective RegRa  "RA"  location <|>
+  singleDirective RegSp  "SP"  location <|>
+  singleDirective RegFp  "FP"  location
 
 parsePhase1 :: Parser Phase1
-parsePhase1 = undefined name
+parsePhase1 = undefined

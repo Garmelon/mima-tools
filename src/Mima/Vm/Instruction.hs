@@ -17,14 +17,10 @@ import           Mima.Vm.Word
 
 data SmallOpcode = LDC | LDV | STV | ADD | AND | OR | XOR | EQL
                  | JMP | JMN | LDIV | STIV | CALL | ADC
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Bounded, Enum)
 
 instance ToText SmallOpcode where
   toText = T.pack . show
-
-allSmallOpcodes :: [SmallOpcode]
-allSmallOpcodes = [LDC, LDV, STV, ADD, AND, OR, XOR, EQL,
-                   JMP, JMN, LDIV, STIV, CALL, ADC]
 
 smallOpcodeNr :: SmallOpcode -> Opcode
 smallOpcodeNr LDC  =  0
@@ -43,18 +39,14 @@ smallOpcodeNr CALL = 12
 smallOpcodeNr ADC  = 13
 
 smallOpcodeMap :: Map.Map Opcode SmallOpcode
-smallOpcodeMap = Map.fromList [(smallOpcodeNr so, so) | so <- allSmallOpcodes]
+smallOpcodeMap = Map.fromList [(smallOpcodeNr so, so) | so <- [minBound..maxBound]]
 
 data LargeOpcode = HALT | NOT | RAR | RET | LDRA | STRA | LDSP | STSP
                  | LDFP | STFP | LDRS | STRS | LDRF | STRF
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Bounded, Enum)
 
 instance ToText LargeOpcode where
   toText = T.pack . show
-
-allLargeOpcodes :: [LargeOpcode]
-allLargeOpcodes = [HALT, NOT, RAR, RET, LDRA, STRA, LDSP, STSP,
-                   LDFP, STFP, LDRS, STRS, LDRF, STRF]
 
 largeOpcodeNr :: LargeOpcode -> Opcode
 largeOpcodeNr HALT =  0
@@ -73,7 +65,7 @@ largeOpcodeNr LDRF = 12
 largeOpcodeNr STRF = 13
 
 largeOpcodeMap :: Map.Map Opcode LargeOpcode
-largeOpcodeMap = Map.fromList [(largeOpcodeNr lo, lo) | lo <- allLargeOpcodes]
+largeOpcodeMap = Map.fromList [(largeOpcodeNr lo, lo) | lo <- [minBound..maxBound]]
 
 argumentIsOptional :: LargeOpcode -> Bool
 argumentIsOptional HALT = True
