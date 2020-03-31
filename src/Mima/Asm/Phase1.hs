@@ -342,6 +342,16 @@ directive =
 
       pure $ f outerSpan regSpan metaName jsonValue
 
+comment :: Parser T.Text
+comment = char ';' *> takeWhileP (Just "comment") (/= '\n')
+
+asmToken :: Parser (AsmToken Span)
+asmToken
+  = (TokenLabel <$> name)                          <|>
+    (TokenInstruction <$> instruction)             <|>
+    (TokenDirective <$> directive)                 <|>
+    fmap (uncurry TokenComment) (withSpan comment)
+
 parsePhase1 :: Parser Phase1
 parsePhase1 = undefined
 
