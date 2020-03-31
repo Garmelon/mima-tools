@@ -17,6 +17,8 @@ module Mima.Asm.Phase1
   -- * Parsers
   , Phase1
   , parsePhase1
+  -- * Parse helper function
+  , parseAssembly
   ) where
 
 import           Control.Monad
@@ -113,7 +115,7 @@ instance Onion SmallValue where
 
 data Instruction a
   = SmallInstruction a (SmallOpcode a) (Location a)
-  | LargeInstruction a (LargeOpcode a) (SmallValue a)
+  | LargeInstruction a (LargeOpcode a) (Maybe (SmallValue a))
   deriving (Show)
 
 instance Onion Instruction where
@@ -266,7 +268,6 @@ smallValue :: Parser (SmallValue Span)
 smallValue = uncurry SmallValue <$> withSpan boundedNumber
 
 instruction :: Parser (Instruction Span)
--- TODO: Instructions without arguments! (e.g. HALT)
 instruction = small <|> large
   where
     small = do
@@ -279,10 +280,12 @@ instruction = small <|> large
     large = do
       start <- getSourcePos
       lo <- largeOpcode
-      space1
-      sv <- smallValue
+      sv <- optionalAwareArgument lo
       stop <- getSourcePos
       pure $ LargeInstruction (Span start stop) lo sv
+    optionalAwareArgument (LargeOpcode _ code)
+      | Vm.argumentIsOptional code = optional (space1 *> smallValue <?> "argument")
+      | otherwise                  = Just <$> (space1 *> smallValue <?> "argument")
 
 singleDirective
   :: (Span -> Span -> a -> b Span)
@@ -365,11 +368,12 @@ doParse p input = case parse parsecParser "" (T.pack input) of
   Right (res, tokenStream) -> putStrLn $ "Success:\n  " ++ show res ++ "\n  " ++ show (appEndo tokenStream [])
   where parsecParser = runWriterT p
 
-parseAssembly :: T.Text -> Either T.Text Phase1
+-- | Parses a given text to a 'Phase1' structure, if possible.
+parseAssembly :: T.Text -> Either (ParseErrorBundle T.Text Void) Phase1
 parseAssembly input = case parse (runWriterT parsePhase1) "" input of
-  Left msg          -> Left $ T.pack $ errorBundlePretty msg
+  Left err          -> Left err
   Right (result, _) -> Right result
 
-displayParseResult :: Either T.Text Phase1 -> IO ()
-displayParseResult (Left msg)  = putStrLn $ T.unpack msg
+displayParseResult :: Either (ParseErrorBundle T.Text Void) Phase1 -> IO ()
+displayParseResult (Left msg)  = putStrLn $ errorBundlePretty msg
 displayParseResult (Right val) = traverse_ print val
