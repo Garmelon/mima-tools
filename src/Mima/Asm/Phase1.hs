@@ -353,7 +353,7 @@ asmToken
     fmap (uncurry TokenComment) (withSpan comment)
 
 parsePhase1 :: Parser Phase1
-parsePhase1 = undefined
+parsePhase1 = many (space *> asmToken)
 
 -- | A small helper for visualizing the parse.
 --
@@ -364,3 +364,12 @@ doParse p input = case parse parsecParser "" (T.pack input) of
   Left msg                 -> putStrLn $ errorBundlePretty msg
   Right (res, tokenStream) -> putStrLn $ "Success:\n  " ++ show res ++ "\n  " ++ show (appEndo tokenStream [])
   where parsecParser = runWriterT p
+
+parseAssembly :: T.Text -> Either T.Text Phase1
+parseAssembly input = case parse (runWriterT parsePhase1) "" input of
+  Left msg          -> Left $ T.pack $ errorBundlePretty msg
+  Right (result, _) -> Right result
+
+displayParseResult :: Either T.Text Phase1 -> IO ()
+displayParseResult (Left msg)  = putStrLn $ T.unpack msg
+displayParseResult (Right val) = traverse_ print val
