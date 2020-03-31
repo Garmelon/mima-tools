@@ -347,7 +347,7 @@ comment = char ';' *> takeWhileP (Just "comment") (/= '\n')
 
 asmToken :: Parser (AsmToken Span)
 asmToken
-  = (TokenLabel <$> name)                          <|>
+  = (TokenLabel <$> name) <* (space <* char ':')   <|>
     (TokenInstruction <$> instruction)             <|>
     (TokenDirective <$> directive)                 <|>
     fmap (uncurry TokenComment) (withSpan comment)
