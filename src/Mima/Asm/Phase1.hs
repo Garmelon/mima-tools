@@ -266,6 +266,7 @@ smallValue :: Parser (SmallValue Span)
 smallValue = uncurry SmallValue <$> withSpan boundedNumber
 
 instruction :: Parser (Instruction Span)
+-- TODO: Instructions without arguments! (e.g. HALT)
 instruction = small <|> large
   where
     small = do
@@ -310,9 +311,9 @@ directive =
   singleDirective Org ".org" address           <|>
   singleDirective Lit ".lit" mimaWord          <|>
   arr                                          <|>
-  metaStart Meta                               <|>
-  metaStart MetaStart                          <|>
-  singleDirective MetaStop ".meta-stop" name
+  metaStart MetaStart ".meta-start"            <|>
+  singleDirective MetaStop ".meta-stop" name   <|>
+  metaStart Meta ".meta"
   where
     arr = do
       (outerSpan, (regSpan, words)) <- withSpan $ do
@@ -323,9 +324,9 @@ directive =
         pure (dirSpan, words)
 
       pure $ Arr outerSpan regSpan words
-    metaStart f = do
+    metaStart f keyword = do
       (outerSpan, (regSpan, metaName, jsonValue)) <- withSpan $ do
-        (dirSpan, _) <- withSpan $ chunk ".meta"
+        (dirSpan, _) <- withSpan $ chunk keyword
         space1
         metaName <- name
         space1
@@ -343,3 +344,13 @@ directive =
 
 parsePhase1 :: Parser Phase1
 parsePhase1 = undefined
+
+-- | A small helper for visualizing the parse.
+--
+-- > doParse address "+200"
+-- TODO: Delete this helper
+doParse :: (Show a) => Parser a -> String -> IO ()
+doParse p input = case parse parsecParser "" (T.pack input) of
+  Left msg                 -> putStrLn $ errorBundlePretty msg
+  Right (res, tokenStream) -> putStrLn $ "Success:\n  " ++ show res ++ "\n  " ++ show (appEndo tokenStream [])
+  where parsecParser = runWriterT p
