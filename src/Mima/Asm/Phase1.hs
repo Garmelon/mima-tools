@@ -218,12 +218,15 @@ number =
   (chunk "0x" *> hexadecimal) <|>
   decimal
 
+optionallySignedNumber :: (Num a) => Parser a
+optionallySignedNumber = signed (pure ()) number -- do not allow any space
+
 signedNumber :: (Num a) => Parser a
-signedNumber = signed empty number
+signedNumber = lookAhead (char '+' <|> char '-') *> optionallySignedNumber
 
 boundedNumber :: (Bounded n, Num n) => Parser n
 boundedNumber = do
-  n <- signedNumber :: Parser Integer
+  n <- optionallySignedNumber :: Parser Integer
   when (n < minVal || n > maxVal) $ fail $
     "invalid range: " ++
     show n ++ " is not between " ++
@@ -235,8 +238,8 @@ boundedNumber = do
 
 address :: Parser (Address Span)
 address =
-  fmap (uncurry AddressAbsolute) (withSpan boundedNumber) <|>
-  fmap (uncurry AddressRelative) (withSpan signedNumber)
+  fmap (uncurry AddressRelative) (withSpan signedNumber) <|>
+  fmap (uncurry AddressAbsolute) (withSpan boundedNumber)
 
 location :: Parser (Location Span)
 location = (LocationAddress <$> address) <|> (LocationLabel <$> name)
