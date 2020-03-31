@@ -353,7 +353,7 @@ asmToken
     fmap (uncurry TokenComment) (withSpan comment)
 
 parsePhase1 :: Parser Phase1
-parsePhase1 = many (space *> asmToken)
+parsePhase1 = many (space *> asmToken) <* eof
 
 -- | A small helper for visualizing the parse.
 --
