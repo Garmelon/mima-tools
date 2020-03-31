@@ -183,7 +183,14 @@ type Phase1 = [AsmToken Span]
 type Parser = WriterT (Endo Phase1) (Parsec Void T.Text)
 
 data Span = Span SourcePos SourcePos
-  deriving (Show)
+
+instance Show Span where
+  show (Span start stop)
+    = "[" ++ formatSourcePos start ++ " - " ++ formatSourcePos stop ++ "]"
+    where
+      formatSourcePos sp
+        = formatPos (sourceLine sp) ++ ":" ++ formatPos (sourceColumn sp)
+      formatPos = show . unPos
 
 addTokens :: [AsmToken Span] -> Parser ()
 addTokens = tell . Endo . (++)
