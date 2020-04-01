@@ -14,11 +14,9 @@ module Mima.Asm.Phase1
   , RegisterDirective(..)
   , JsonValue(..)
   , Directive(..)
-  -- * Parsers
+  -- * Phase1
   , Phase1
   , parsePhase1
-  -- * Parse helper function
-  , parseAssembly
   ) where
 
 import           Control.Monad
@@ -27,6 +25,7 @@ import qualified Data.Aeson                 as A
 import qualified Data.ByteString.Lazy       as BS
 import           Data.Char
 import           Data.Foldable
+import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as T
@@ -170,19 +169,21 @@ data AsmToken a
   = TokenLabel (Name a)
   | TokenInstruction (Instruction a)
   | TokenDirective (Directive a)
-  | TokenComment a T.Text
+  | TokenComment a T.Text Bool
+  -- ^ @'TokenComment' a text inline@ represents a comment.
+  -- @inline@ is true if the comment is on the same line as an instruction or a label.
   deriving (Show)
 
 instance Onion AsmToken where
   peel (TokenLabel a)       = peel a
   peel (TokenInstruction a) = peel a
   peel (TokenDirective a)   = peel a
-  peel (TokenComment a _)   = a
+  peel (TokenComment a _ _) = a
 
 {- Parsers -}
 
 type Phase1 = [AsmToken Span]
-type Parser = WriterT (Endo Phase1) (Parsec Void T.Text)
+type Parser = Parsec Void T.Text
 
 data Span = Span SourcePos SourcePos
 
@@ -194,11 +195,11 @@ instance Show Span where
         = formatPos (sourceLine sp) ++ ":" ++ formatPos (sourceColumn sp)
       formatPos = show . unPos
 
-addTokens :: [AsmToken Span] -> Parser ()
-addTokens = tell . Endo . (++)
+inlineSpace :: Parser ()
+inlineSpace = void $ takeWhileP (Just "space (no newline)") (\x -> isSpace x && x /= '\n')
 
-addToken :: AsmToken Span -> Parser ()
-addToken t = addTokens [t]
+inlineSpace1 :: Parser ()
+inlineSpace1 = void $ takeWhile1P (Just "space (no newline)") (\x -> isSpace x && x /= '\n')
 
 withSpan :: Parser a -> Parser (Span, a)
 withSpan f = do
@@ -273,7 +274,7 @@ instruction = small <|> large
     small = do
       start <- getSourcePos
       so <- smallOpcode
-      space1
+      inlineSpace1
       loc <- location
       stop <- getSourcePos
       pure $ SmallInstruction (Span start stop) so loc
@@ -284,8 +285,8 @@ instruction = small <|> large
       stop <- getSourcePos
       pure $ LargeInstruction (Span start stop) lo sv
     optionalAwareArgument (LargeOpcode _ code)
-      | Vm.argumentIsOptional code = optional (space1 *> smallValue <?> "argument")
-      | otherwise                  = Just <$> (space1 *> smallValue <?> "argument")
+      | Vm.argumentIsOptional code = optional (inlineSpace1 *> smallValue <?> "argument")
+      | otherwise                  = Just <$> (inlineSpace1 *> smallValue <?> "argument")
 
 singleDirective
   :: (Span -> Span -> a -> b Span)
@@ -295,7 +296,7 @@ singleDirective
 singleDirective f t p = do
   (outerSpan, (nameSpan, a)) <- withSpan $ do
     (nameSpan, _) <- withSpan $ chunk t
-    space1
+    inlineSpace1
     a <- p
     pure (nameSpan, a)
   pure $ f outerSpan nameSpan a
@@ -321,18 +322,18 @@ directive =
     arr = do
       (outerSpan, (regSpan, words)) <- withSpan $ do
         (dirSpan, _) <- withSpan $ chunk ".arr"
-        space1
+        inlineSpace1
         words <- between (char '[') (char ']') $
-          sepBy1 mimaWord (char ',' *> space)
+          sepBy1 mimaWord (char ',' *> inlineSpace)
         pure (dirSpan, words)
 
       pure $ Arr outerSpan regSpan words
     metaStart f keyword = do
       (outerSpan, (regSpan, metaName, jsonValue)) <- withSpan $ do
         (dirSpan, _) <- withSpan $ chunk keyword
-        space1
+        inlineSpace1
         metaName <- name
-        space1
+        inlineSpace1
 
         (valueSpan, rawJsonValue) <- withSpan $ do
           metaValueBS <- BS.fromStrict . T.encodeUtf8
@@ -345,35 +346,39 @@ directive =
 
       pure $ f outerSpan regSpan metaName jsonValue
 
-comment :: Parser T.Text
-comment = char ';' *> takeWhileP (Just "comment") (/= '\n')
+comment :: Bool -> Parser (AsmToken Span)
+comment inline = fmap (\(span, text) -> TokenComment span text inline) $ withSpan $
+  char ';' *> takeWhileP (Just "comment") (/= '\n')
 
 asmToken :: Parser (AsmToken Span)
-asmToken
-  = (TokenLabel <$> name) <* (space <* char ':')   <|>
-    (TokenInstruction <$> instruction)             <|>
-    (TokenDirective <$> directive)                 <|>
-    fmap (uncurry TokenComment) (withSpan comment)
+asmToken = (TokenInstruction <$> instruction) <|> (TokenDirective <$> directive)
+
+labels :: Parser [AsmToken Span]
+labels = do
+  start <- optional label_
+  case start of
+    Nothing -> pure []
+    Just l  -> do
+      ls <- many $ try $ inlineSpace1 *> label_
+      pure $ l : ls
+  where
+    label_ = (TokenLabel <$> name) <* (inlineSpace <* char ':')
+
+-- | Parses a single line consisting of zero or more tokens:
+-- inlineSpace, zero or more labels, zero or more instructions/directives,
+-- zero or more comments and a final newline or EOF.
+lineParser :: Parser [AsmToken Span]
+lineParser = do
+  inlineSpace
+  ls <- labels
+  t <- optional $ try $ do
+    unless (null ls) inlineSpace1
+    asmToken
+  c <- optional $ try $ do
+    let aloneOnLine = null ls && isNothing t
+    unless aloneOnLine inlineSpace1
+    comment $ not aloneOnLine
+  pure $ ls ++ toList t ++ toList c
 
 parsePhase1 :: Parser Phase1
-parsePhase1 = many (space *> asmToken) <* eof
-
--- | A small helper for visualizing the parse.
---
--- > doParse address "+200"
--- TODO: Delete this helper
-doParse :: (Show a) => Parser a -> String -> IO ()
-doParse p input = case parse parsecParser "" (T.pack input) of
-  Left msg                 -> putStrLn $ errorBundlePretty msg
-  Right (res, tokenStream) -> putStrLn $ "Success:\n  " ++ show res ++ "\n  " ++ show (appEndo tokenStream [])
-  where parsecParser = runWriterT p
-
--- | Parses a given text to a 'Phase1' structure, if possible.
-parseAssembly :: T.Text -> Either (ParseErrorBundle T.Text Void) Phase1
-parseAssembly input = case parse (runWriterT parsePhase1) "" input of
-  Left err          -> Left err
-  Right (result, _) -> Right result
-
-displayParseResult :: Either (ParseErrorBundle T.Text Void) Phase1 -> IO ()
-displayParseResult (Left msg)  = putStrLn $ errorBundlePretty msg
-displayParseResult (Right val) = traverse_ print val
+parsePhase1 = mconcat <$> sepBy lineParser newline <* eof
