@@ -14,24 +14,23 @@ module Mima.Asm.Phase1
   , RegisterDirective(..)
   , JsonValue(..)
   , Directive(..)
+  , Span(..)
   -- * Phase1
   , Phase1
   , parsePhase1
+  , formatPhase1
   ) where
 
 import           Control.Monad
-import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                 as A
 import qualified Data.Aeson.Text            as A
 import qualified Data.ByteString.Lazy       as BS
 import           Data.Char
 import           Data.Foldable
-import           Data.List
 import           Data.Maybe
-import           Data.Monoid
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as T
-import qualified Data.Text.Lazy             as LT
+import qualified Data.Text.Lazy             as TL
 import           Data.Void
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
@@ -184,20 +183,14 @@ instance Onion AsmToken where
   peel (TokenDirective a)   = peel a
   peel (TokenComment a _ _) = a
 
-{- Parsers -}
+data Span = Span SourcePos SourcePos
+  deriving (Show)
 
 type Phase1 = [AsmToken Span]
+
+{- Parsing -}
+
 type Parser = Parsec Void T.Text
-
-data Span = Span SourcePos SourcePos
-
-instance Show Span where
-  show (Span start stop)
-    = "[" ++ formatSourcePos start ++ " - " ++ formatSourcePos stop ++ "]"
-    where
-      formatSourcePos sp
-        = formatPos (sourceLine sp) ++ ":" ++ formatPos (sourceColumn sp)
-      formatPos = show . unPos
 
 inlineSpace :: Parser ()
 inlineSpace = void $ takeWhileP (Just "space (no newline)") (\x -> isSpace x && x /= '\n')
@@ -324,14 +317,14 @@ directive =
   metaStart Meta ".meta"
   where
     arr = do
-      (outerSpan, (regSpan, words)) <- withSpan $ do
+      (outerSpan, (regSpan, mimaWords)) <- withSpan $ do
         (dirSpan, _) <- withSpan $ chunk ".arr"
         inlineSpace1
-        words <- between (char '[') (char ']') $
+        mimaWords <- between (char '[') (char ']') $
           sepBy1 mimaWord (char ',' *> inlineSpace)
-        pure (dirSpan, words)
+        pure (dirSpan, mimaWords)
+      pure $ Arr outerSpan regSpan mimaWords
 
-      pure $ Arr outerSpan regSpan words
     metaStart f keyword = do
       (outerSpan, (regSpan, metaName, jsonValue)) <- withSpan $ do
         (dirSpan, _) <- withSpan $ chunk keyword
@@ -347,11 +340,10 @@ directive =
             Right value -> pure value
 
         pure (dirSpan, metaName, JsonValue valueSpan rawJsonValue)
-
       pure $ f outerSpan regSpan metaName jsonValue
 
 comment :: Bool -> Parser (AsmToken Span)
-comment inline = fmap (\(span, text) -> TokenComment span text inline) $ withSpan $
+comment inline = fmap (\(s, text) -> TokenComment s text inline) $ withSpan $
   char ';' *> takeWhileP (Just "comment") (/= '\n')
 
 asmToken :: Parser (AsmToken Span)
@@ -389,39 +381,8 @@ parsePhase1 = mconcat <$> sepBy lineParser newline <* eof
 
 {- Formatting -}
 
-formatPhase1 :: Phase1 -> T.Text
-formatPhase1 = T.tail . mconcat . map formatSingle
-  where
-    formatSingle (TokenLabel name)              = "\n" <> formatAsLabel name
-    formatSingle (TokenInstruction ins)         = "\n  " <> formatInstruction ins
-    formatSingle (TokenDirective dir)           = "\n" <> formatDirective dir
-    formatSingle (TokenComment _ text inline)   = (if inline then " " else "\n") <> ";" <> text
-
-formatAsLabel :: Name a -> T.Text
-formatAsLabel (Name _ text) = text <> ": "
-
-formatAsName :: Name a -> T.Text
-formatAsName (Name _ text) = text
-
-formatInstruction :: Instruction a -> T.Text
-formatInstruction (SmallInstruction _ opcode loc)
-  = formatSmallOpcode opcode <> " " <> formatLocation loc
-formatInstruction (LargeInstruction _ opcode Nothing) = formatLargeOpcode opcode
-formatInstruction (LargeInstruction _ opcode (Just val))
- = formatLargeOpcode opcode <> " " <> formatSmallValue val
-
-formatSmallOpcode :: SmallOpcode a -> T.Text
-formatSmallOpcode (SmallOpcode _ opcode) = T.pack $ show opcode
-
-formatLargeOpcode :: LargeOpcode a -> T.Text
-formatLargeOpcode (LargeOpcode _ opcode) = T.pack $ show opcode
-
-formatLocation :: Location a -> T.Text
-formatLocation (LocationAddress address) = formatAddress address
-formatLocation (LocationLabel label)     = formatAsLabel label
-
-formatSmallValue :: SmallValue a -> T.Text
-formatSmallValue (SmallValue _ val) = toDec val
+formatName :: Name a -> T.Text
+formatName (Name _ text) = text
 
 formatAddress :: Address a -> T.Text
 formatAddress (AddressAbsolute _ addr) = toDec addr
@@ -429,9 +390,30 @@ formatAddress (AddressRelative _ rel)
   | rel >= 0 = T.pack $ "+" ++ show rel
   | otherwise = T.pack $ show rel
 
+formatLocation :: Location a -> T.Text
+formatLocation (LocationAddress addr) = formatAddress addr
+formatLocation (LocationLabel l)      = formatName l
+
+formatSmallOpcode :: SmallOpcode a -> T.Text
+formatSmallOpcode (SmallOpcode _ opcode) = T.pack $ show opcode
+
+formatLargeOpcode :: LargeOpcode a -> T.Text
+formatLargeOpcode (LargeOpcode _ opcode) = T.pack $ show opcode
+
 formatMimaWord :: MimaWord a -> T.Text
 formatMimaWord (WordRaw _ word)   = toDec word
 formatMimaWord (WordLocation loc) = formatLocation loc
+
+formatSmallValue :: SmallValue a -> T.Text
+formatSmallValue (SmallValue _ val) = toDec val
+
+formatInstruction :: Instruction a -> T.Text
+formatInstruction (SmallInstruction _ opcode loc) =
+  formatSmallOpcode opcode <> " " <> formatLocation loc
+formatInstruction (LargeInstruction _ opcode Nothing) =
+  formatLargeOpcode opcode
+formatInstruction (LargeInstruction _ opcode (Just val)) =
+  formatLargeOpcode opcode <> " " <> formatSmallValue val
 
 formatRegisterDirective :: RegisterDirective a -> T.Text
 formatRegisterDirective (RegIar _ _ loc)  = "IAR " <> formatLocation loc
@@ -440,27 +422,28 @@ formatRegisterDirective (RegRa  _ _ loc)  = "RA "  <> formatLocation loc
 formatRegisterDirective (RegSp  _ _ loc)  = "SP "  <> formatLocation loc
 formatRegisterDirective (RegFp  _ _ loc)  = "FP "  <> formatLocation loc
 
+formatJsonValue :: JsonValue a -> T.Text
+formatJsonValue (JsonValue _ val) = TL.toStrict $ A.encodeToLazyText val
+
 formatDirective :: Directive a -> T.Text
-formatDirective (Reg _ _ regDir)         = ".reg " <> formatRegisterDirective regDir
-formatDirective (Org _ _ addr)           = ".org " <> formatAddress addr
-formatDirective (Lit _ _ val)            = ".lit " <> formatMimaWord val
-formatDirective (Arr _ _ vals)           =
+formatDirective (Reg _ _ regDir) = ".reg " <> formatRegisterDirective regDir
+formatDirective (Org _ _ addr)   = ".org " <> formatAddress addr
+formatDirective (Lit _ _ val)    = ".lit " <> formatMimaWord val
+formatDirective (Arr _ _ vals) =
   ".arr [" <> T.intercalate ", " (map formatMimaWord vals) <> "]"
-formatDirective (Meta _ _ name val)      =
-  ".meta " <> formatAsName name <> " " <> formatJson val
-formatDirective (MetaStart _ _ name val) =
-  ".meta-start " <> formatAsName name <> " " <> formatJson val
-formatDirective (MetaStop _ _ name)      = ".meta-stop " <> formatAsName name
+formatDirective (Meta _ _ n val) =
+  ".meta " <> formatName n <> " " <> formatJsonValue val
+formatDirective (MetaStart _ _ n val) =
+  ".meta-start " <> formatName n <> " " <> formatJsonValue val
+formatDirective (MetaStop _ _ n) = ".meta-stop " <> formatName n
 
-formatJson :: JsonValue a -> T.Text
-formatJson (JsonValue _ val) = LT.toStrict $ A.encodeToLazyText val
+formatToken :: AsmToken a -> T.Text
+formatToken (TokenLabel n)          = formatName n <> ":"
+formatToken (TokenInstruction ins)  = "  " <> formatInstruction ins
+formatToken (TokenDirective dir)    = formatDirective dir
+formatToken (TokenComment _ text _) = ";" <> text
 
-roundTrip :: T.Text -> T.Text
-roundTrip input = case parse parsePhase1 "" input of
-  Left err  -> T.pack $ errorBundlePretty err
-  Right val -> formatPhase1 val
-
-displayParse :: T.Text -> IO ()
-displayParse input = case parse parsePhase1 "" input of
-  Left err  -> putStrLn $ errorBundlePretty err
-  Right val -> traverse_ print val
+formatPhase1 :: Phase1 -> T.Text
+formatPhase1 (x:y@(TokenComment _ _ True):xs) = formatToken x <> " " <> formatPhase1 (y:xs)
+formatPhase1 (x:xs) = formatToken x <> "\n" <> formatPhase1 xs
+formatPhase1 [] = ""
