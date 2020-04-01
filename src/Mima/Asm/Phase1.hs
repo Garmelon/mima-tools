@@ -22,18 +22,22 @@ module Mima.Asm.Phase1
 import           Control.Monad
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                 as A
+import qualified Data.Aeson.Text            as A
 import qualified Data.ByteString.Lazy       as BS
 import           Data.Char
 import           Data.Foldable
+import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as T
+import qualified Data.Text.Lazy             as LT
 import           Data.Void
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import           Text.Megaparsec.Char.Lexer hiding (space)
 
+import           Mima.Format
 import qualified Mima.Vm.Instruction        as Vm
 import qualified Mima.Vm.Word               as Vm
 
@@ -382,3 +386,81 @@ lineParser = do
 
 parsePhase1 :: Parser Phase1
 parsePhase1 = mconcat <$> sepBy lineParser newline <* eof
+
+{- Formatting -}
+
+formatPhase1 :: Phase1 -> T.Text
+formatPhase1 = T.tail . mconcat . map formatSingle
+  where
+    formatSingle (TokenLabel name)              = "\n" <> formatAsLabel name
+    formatSingle (TokenInstruction ins)         = "\n  " <> formatInstruction ins
+    formatSingle (TokenDirective dir)           = "\n" <> formatDirective dir
+    formatSingle (TokenComment _ text inline)   = (if inline then " " else "\n") <> ";" <> text
+
+formatAsLabel :: Name a -> T.Text
+formatAsLabel (Name _ text) = text <> ": "
+
+formatAsName :: Name a -> T.Text
+formatAsName (Name _ text) = text
+
+formatInstruction :: Instruction a -> T.Text
+formatInstruction (SmallInstruction _ opcode loc)
+  = formatSmallOpcode opcode <> " " <> formatLocation loc
+formatInstruction (LargeInstruction _ opcode Nothing) = formatLargeOpcode opcode
+formatInstruction (LargeInstruction _ opcode (Just val))
+ = formatLargeOpcode opcode <> " " <> formatSmallValue val
+
+formatSmallOpcode :: SmallOpcode a -> T.Text
+formatSmallOpcode (SmallOpcode _ opcode) = T.pack $ show opcode
+
+formatLargeOpcode :: LargeOpcode a -> T.Text
+formatLargeOpcode (LargeOpcode _ opcode) = T.pack $ show opcode
+
+formatLocation :: Location a -> T.Text
+formatLocation (LocationAddress address) = formatAddress address
+formatLocation (LocationLabel label)     = formatAsLabel label
+
+formatSmallValue :: SmallValue a -> T.Text
+formatSmallValue (SmallValue _ val) = toDec val
+
+formatAddress :: Address a -> T.Text
+formatAddress (AddressAbsolute _ addr) = toDec addr
+formatAddress (AddressRelative _ rel)
+  | rel >= 0 = T.pack $ "+" ++ show rel
+  | otherwise = T.pack $ show rel
+
+formatMimaWord :: MimaWord a -> T.Text
+formatMimaWord (WordRaw _ word)   = toDec word
+formatMimaWord (WordLocation loc) = formatLocation loc
+
+formatRegisterDirective :: RegisterDirective a -> T.Text
+formatRegisterDirective (RegIar _ _ loc)  = "IAR " <> formatLocation loc
+formatRegisterDirective (RegAcc _ _ word) = "ACC " <> formatMimaWord word
+formatRegisterDirective (RegRa  _ _ loc)  = "RA "  <> formatLocation loc
+formatRegisterDirective (RegSp  _ _ loc)  = "SP "  <> formatLocation loc
+formatRegisterDirective (RegFp  _ _ loc)  = "FP "  <> formatLocation loc
+
+formatDirective :: Directive a -> T.Text
+formatDirective (Reg _ _ regDir)         = ".reg " <> formatRegisterDirective regDir
+formatDirective (Org _ _ addr)           = ".org " <> formatAddress addr
+formatDirective (Lit _ _ val)            = ".lit " <> formatMimaWord val
+formatDirective (Arr _ _ vals)           =
+  ".arr [" <> T.intercalate ", " (map formatMimaWord vals) <> "]"
+formatDirective (Meta _ _ name val)      =
+  ".meta " <> formatAsName name <> " " <> formatJson val
+formatDirective (MetaStart _ _ name val) =
+  ".meta-start " <> formatAsName name <> " " <> formatJson val
+formatDirective (MetaStop _ _ name)      = ".meta-stop " <> formatAsName name
+
+formatJson :: JsonValue a -> T.Text
+formatJson (JsonValue _ val) = LT.toStrict $ A.encodeToLazyText val
+
+roundTrip :: T.Text -> T.Text
+roundTrip input = case parse parsePhase1 "" input of
+  Left err  -> T.pack $ errorBundlePretty err
+  Right val -> formatPhase1 val
+
+displayParse :: T.Text -> IO ()
+displayParse input = case parse parsePhase1 "" input of
+  Left err  -> putStrLn $ errorBundlePretty err
+  Right val -> traverse_ print val
