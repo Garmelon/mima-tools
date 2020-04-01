@@ -42,7 +42,7 @@ toBin a = T.reverse $ T.pack $ toBin' a
     toBin' n = (if n `mod` 2 == 0 then '0' else '1') : toBin' (n `div` 2)
 
 toDec :: (Integral a, Show a ) => a -> T.Text
-toDec = T.pack . show
+toDec a = T.pack $ showInt a ""
 
 toHex :: (Integral a, Show a) => a -> T.Text
 toHex a = T.pack $ showHex a ""
