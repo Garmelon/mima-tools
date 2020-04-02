@@ -184,7 +184,12 @@ instance Onion AsmToken where
   peel (TokenComment a _ _) = a
 
 data Span = Span SourcePos SourcePos
-  deriving (Show)
+
+instance Show Span where
+  show (Span start end) = "<" ++ showPos start ++ "-" ++ showPos end ++ ">"
+    where
+      showPos pos =
+        show (unPos $ sourceLine pos) ++ ":" ++ show (unPos $ sourceColumn pos)
 
 type Phase1 = [AsmToken Span]
 
