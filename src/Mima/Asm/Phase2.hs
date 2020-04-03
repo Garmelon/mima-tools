@@ -6,6 +6,7 @@
 
 module Mima.Asm.Phase2
   ( phaseS1 -- TODO only leave the proper types
+  , phaseS2
   ) where
 
 import           Control.Monad
@@ -14,6 +15,7 @@ import           Control.Monad.Trans.State
 import qualified Data.Aeson                as A
 import           Data.Foldable
 import qualified Data.Map.Strict           as Map
+import           Data.Maybe
 import qualified Data.Text                 as T
 import           Data.Void
 
@@ -191,12 +193,12 @@ type instance TokenRegX 'S4 s = RegisterDirective 'S4 s
 type instance TokenRegX 'S5 s = Void
 
 data AsmToken (t :: Subphase) (s :: *)
- = TokenOrg   (TokenOrgX t s)
- | TokenLabel (AddressX t s) (TokenLabelX t s)
- | TokenMeta  (AddressX t s) (TokenMetaX t s)
- | TokenLit   (AddressX t s) (MimaWord t s)
- | TokenInstr (AddressX t s) (TokenInstrX t s)
- | TokenReg   (AddressX t s) (TokenRegX t s)
+ = TokenOrg   s (TokenOrgX t s)
+ | TokenLabel s (AddressX t s) (TokenLabelX t s)
+ | TokenMeta  s (AddressX t s) (TokenMetaX t s)
+ | TokenLit   s (AddressX t s) (MimaWord t s)
+ | TokenInstr s (AddressX t s) (TokenInstrX t s)
+ | TokenReg   s (AddressX t s) (TokenRegX t s)
 
 deriving instance Show s => Show (AsmToken 'S1 s)
 deriving instance Show s => Show (AsmToken 'S2 s)
@@ -204,9 +206,17 @@ deriving instance Show s => Show (AsmToken 'S3 s)
 deriving instance Show s => Show (AsmToken 'S4 s)
 deriving instance Show s => Show (AsmToken 'S5 s)
 
+instance Onion (AsmToken t) where
+  peel (TokenOrg   s _)   = s
+  peel (TokenLabel s _ _) = s
+  peel (TokenMeta  s _ _) = s
+  peel (TokenLit   s _ _) = s
+  peel (TokenInstr s _ _) = s
+  peel (TokenReg   s _ _) = s
+
 type Phase2 t s = [AsmToken t s]
 
-{- Subphase 1 -}
+{- Phae 1 to Phase 2 -}
 
 p1ToP2Name :: P1.Name s -> Name s
 p1ToP2Name (P1.Name s text) = Name s text
@@ -242,6 +252,8 @@ p1ToP2RegDir (P1.RegRa  s _ loc)  = RegRa  s $ p1ToP2Location loc
 p1ToP2RegDir (P1.RegSp  s _ loc)  = RegSp  s $ p1ToP2Location loc
 p1ToP2RegDir (P1.RegFp  s _ loc)  = RegFp  s $ p1ToP2Location loc
 
+{- Subphase 1 -}
+
 data MetaS1 s = MetaS1 s (P1.Name s) (P1.JsonValue s)
   deriving (Show)
 
@@ -273,36 +285,36 @@ s1WithMetas :: WeedS1 s () -> WeedS1 s ()
 s1WithMetas f = do
   metas <- s1TakeMetas
   for_ (reverse metas) $ \(MetaS1 s name value) ->
-    s1AddToken $ TokenMeta () $
+    s1AddToken $ TokenMeta s () $
     MetaStart s (p1ToP2Name name) (p1ToP2JsonValue value)
   f
   for_ metas $ \(MetaS1 s name _) ->
-    s1AddToken $ TokenMeta () $ MetaStop s (p1ToP2Name name)
+    s1AddToken $ TokenMeta s () $ MetaStop s (p1ToP2Name name)
 
 s1AddToken :: AsmToken 'S1 s -> WeedS1 s ()
 s1AddToken t = modify $ \s -> s{s1Tokens = t : s1Tokens s}
 
 s1AddP1Token :: P1.AsmToken s -> WeedS1 s ()
 s1AddP1Token (P1.TokenLabel name) =
-  s1AddToken $ TokenLabel () $ p1ToP2Name name
+  s1AddToken $ TokenLabel (peel name) () $ p1ToP2Name name
 s1AddP1Token (P1.TokenInstruction instr) =
-  s1WithMetas $ s1AddToken $ TokenInstr () $ p1ToP2Instruction instr
-s1AddP1Token (P1.TokenDirective (P1.Reg _ _ regDir)) =
-  s1AddToken $ TokenReg () $ p1ToP2RegDir regDir
-s1AddP1Token (P1.TokenDirective (P1.Org _ _ addr)) = do
+  s1WithMetas $ s1AddToken $ TokenInstr (peel instr) () $ p1ToP2Instruction instr
+s1AddP1Token (P1.TokenDirective (P1.Reg s _ regDir)) =
+  s1AddToken $ TokenReg s () $ p1ToP2RegDir regDir
+s1AddP1Token (P1.TokenDirective (P1.Org s _ addr)) = do
   s1WithMetas $ pure ()
-  s1AddToken $ TokenOrg $ p1ToP2Address addr
-s1AddP1Token (P1.TokenDirective (P1.Lit _ _ w)) =
-  s1WithMetas $ s1AddToken $ TokenLit () $ p1ToP2Word w
-s1AddP1Token (P1.TokenDirective (P1.Arr _ _ ws)) =
-  s1WithMetas $ for_ ws $ s1AddToken . TokenLit () . p1ToP2Word
+  s1AddToken $ TokenOrg s $ p1ToP2Address addr
+s1AddP1Token (P1.TokenDirective (P1.Lit s _ w)) =
+  s1WithMetas $ s1AddToken $ TokenLit s () $ p1ToP2Word w
+s1AddP1Token (P1.TokenDirective (P1.Arr s _ ws)) =
+  s1WithMetas $ for_ ws $ s1AddToken . TokenLit s () . p1ToP2Word
 s1AddP1Token (P1.TokenDirective (P1.Meta s _ name value)) =
   s1AddMeta s name value
 s1AddP1Token (P1.TokenDirective (P1.MetaStart s _ name value)) =
-  s1AddToken $ TokenMeta () $
+  s1AddToken $ TokenMeta s () $
   MetaStart s (p1ToP2Name name) (p1ToP2JsonValue value)
 s1AddP1Token (P1.TokenDirective (P1.MetaStop s _ name)) =
-  s1AddToken $ TokenMeta () $ MetaStop s (p1ToP2Name name)
+  s1AddToken $ TokenMeta s () $ MetaStop s (p1ToP2Name name)
 s1AddP1Token P1.TokenComment{} = pure ()
 
 phaseS1 :: P1.Phase1 s -> Weed (WeedError s) (Phase2 'S1 s)
@@ -311,4 +323,87 @@ phaseS1 ts = do
   s <- flip execStateT initialS $ do
     traverse_ s1AddP1Token ts
     s1WithMetas $ pure ()
-  pure $ s1Tokens s
+  pure $ reverse $ s1Tokens s
+
+{- Subphase 2 -}
+
+data StateS2 s = StateS2
+  { s2CurrentAddress :: Vm.MimaAddress
+  , s2AddressFilled  :: Bool
+  } deriving (Show)
+
+type WeedS2 s = StateT (StateS2 s) (Weed (WeedError s))
+
+s2AddAddress :: s -> Int -> WeedS2 s ()
+s2AddAddress s amount = do
+  s2 <- get
+  s2SetAddress s (s2CurrentAddress s2 + fromIntegral amount)
+
+s2SetAddress :: s -> Vm.MimaAddress -> WeedS2 s ()
+s2SetAddress s newAddress = do
+  s2 <- get
+  let oldAddress = s2CurrentAddress s2
+  when (oldAddress > newAddress) $
+    lift $ harmless $ errorWith s "address must not be smaller than current"
+  put $ s2
+    { s2CurrentAddress = newAddress
+    , s2AddressFilled = if newAddress == oldAddress then s2AddressFilled s2 else False
+    }
+
+s2NextAddress :: s -> WeedS2 s Vm.MimaAddress
+s2NextAddress s = do
+  s2 <- get
+  when (s2AddressFilled s2) $ s2AddAddress s 1
+  pure $ s2CurrentAddress s2
+
+s2ConvertLocation :: LocationX 'S1 s -> WeedS2 s (LocationX 'S2 s)
+s2ConvertLocation (Loc1Absolute s addr) = pure $ Loc2Absolute s addr
+s2ConvertLocation (Loc1Label name) = pure $ Loc2Label name
+s2ConvertLocation (Loc1Relative s delta) = do
+  address <- s2CurrentAddress <$> get
+  -- TODO: Check if out of bounds? Or just silently modulo?
+  pure $ Loc2Absolute s (address + fromIntegral delta)
+
+s2ConvertMimaWord :: MimaWord 'S1 s -> WeedS2 s (MimaWord 'S2 s)
+s2ConvertMimaWord (WordLocation loc) = WordLocation <$> s2ConvertLocation loc
+s2ConvertMimaWord (WordRaw word)     = pure $ WordRaw word
+
+s2ConvertInstruction :: Instruction 'S1 s -> WeedS2 s (Instruction 'S2 s)
+s2ConvertInstruction (SmallInstruction opcode loc)
+  = SmallInstruction opcode <$> s2ConvertLocation loc
+s2ConvertInstruction (LargeInstruction opcode val) = pure $ LargeInstruction opcode val
+
+s2ConvertRegisterDirective :: RegisterDirective 'S1 s -> WeedS2 s (RegisterDirective 'S2 s)
+s2ConvertRegisterDirective (RegIar s loc)  = RegIar s <$> s2ConvertLocation loc
+s2ConvertRegisterDirective (RegAcc s word) = RegAcc s <$> s2ConvertMimaWord word
+s2ConvertRegisterDirective (RegRa  s loc)  = RegRa  s <$> s2ConvertLocation loc
+s2ConvertRegisterDirective (RegSp  s loc)  = RegSp  s <$> s2ConvertLocation loc
+s2ConvertRegisterDirective (RegFp  s loc)  = RegFp  s <$> s2ConvertLocation loc
+
+s2ConvertP2Token :: AsmToken 'S1 s -> WeedS2 s (Maybe (AsmToken 'S2 s))
+s2ConvertP2Token (TokenOrg _ (OrgAddrAbsolute s address))
+  = Nothing <$ s2SetAddress s address
+s2ConvertP2Token (TokenOrg _ (OrgAddrRelative s address))
+  | address < 0 = Nothing <$ s2SetAddress s (maxBound + fromIntegral address)
+  | otherwise = Nothing <$ s2AddAddress s (fromIntegral address)
+s2ConvertP2Token (TokenLabel s _ name) = do
+  address <- s2CurrentAddress <$> get
+  pure $ Just $ TokenLabel s address name
+s2ConvertP2Token (TokenMeta s _ meta) = do
+  address <- s2CurrentAddress <$> get
+  pure $ Just $ TokenMeta s address meta
+s2ConvertP2Token (TokenLit s _ word) = do
+  address <- s2NextAddress s
+  newWord <- s2ConvertMimaWord word
+  pure $ Just $ TokenLit s address newWord
+s2ConvertP2Token (TokenInstr s _ instr) = do
+  address <- s2NextAddress s
+  Just . TokenInstr s address <$> s2ConvertInstruction instr
+s2ConvertP2Token (TokenReg s _ reg) = do
+  address <- s2CurrentAddress <$> get
+  Just . TokenReg s address <$> s2ConvertRegisterDirective reg
+
+phaseS2 :: Phase2 'S1 s -> Weed (WeedError s) (Phase2 'S2 s)
+phaseS2 s1 = do
+  let initialS = StateS2 0 False
+  catMaybes <$> evalStateT (traverse s2ConvertP2Token s1) initialS
