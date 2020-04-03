@@ -1,12 +1,14 @@
 module Mima.Asm.Weed
   ( Weed
   , runWeed
+  , transformErrors
   , critical
   , harmless
+  , WeedError(..)
+  , errorWith
   -- * Megaparsec compatibility
   , defaultPosState
-  , errorAt
-  , errorsAt
+  , asParseErrors
   , runWeedBundle
   ) where
 
@@ -40,17 +42,33 @@ runWeed :: Weed e a -> Either (NE.NonEmpty e) a
 -- keep the Endo trick, the tradeoff isn't worth it. The problem here
 -- is that I can't easily check if 'es' is 'mempty' with these
 -- endofunctors.
-runWeed (Weed es (Left e))  = Left $ NE.fromList $ appEndo es [e]
+runWeed (Weed es (Left e))  = Left $ e NE.:| appEndo es []
 runWeed (Weed es (Right a)) =
   case appEndo es [] of
     (x:xs) -> Left $ x NE.:| xs
     []     -> Right a
+
+transformErrors :: (e1 -> e2) -> Weed e1 a -> Weed e2 a
+transformErrors f (Weed es result) = Weed es' result'
+ where
+   es' = Endo $ (++) $ map f $ appEndo es []
+   result' = case result of
+     Right a -> Right a
+     Left e  -> Left $ f e
 
 critical :: e -> Weed e a
 critical e = Weed mempty (Left e)
 
 harmless :: e -> Weed e ()
 harmless e = Weed (Endo (e:)) (Right ())
+
+data WeedError a = WeedError a String
+
+instance Functor WeedError where
+  fmap f (WeedError a s) = WeedError (f a) s
+
+errorWith :: a -> String -> WeedError a
+errorWith = WeedError
 
 {- Megaparsec compatibility -}
 
@@ -63,11 +81,11 @@ defaultPosState filename input = PosState
   , pstateLinePrefix = ""
   }
 
-errorAt :: (Ord e) => Int -> String -> ParseError s e
-errorAt o errorMsg = errorsAt o [errorMsg]
-
-errorsAt :: (Ord e) => Int -> [String] -> ParseError s e
-errorsAt o = FancyError o . Set.fromList . map ErrorFail
+asParseErrors :: Weed (WeedError Int) a -> Weed (ParseError s e) a
+asParseErrors = transformErrors toParseError
+  where
+    toParseError (WeedError offset msg) =
+      FancyError offset $ Set.singleton $ ErrorFail msg
 
 runWeedBundle :: FilePath -> s -> Weed (ParseError s e) a -> Either (ParseErrorBundle s e) a
 runWeedBundle filename input w = case runWeed w of
