@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Mima.Asm.Phase1
@@ -15,6 +16,7 @@ module Mima.Asm.Phase1
   , JsonValue(..)
   , Directive(..)
   , Span(..)
+  , AsmToken(..)
   -- * Phase1
   , Phase1
   , parsePhase1
@@ -65,7 +67,7 @@ class Onion o where
 {- Types -}
 
 data Name a = Name a T.Text
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion Name where
   peel (Name a _) = a
@@ -73,7 +75,7 @@ instance Onion Name where
 data Address a
   = AddressAbsolute a Vm.MimaAddress
   | AddressRelative a Integer
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion Address where
   peel (AddressAbsolute a _) = a
@@ -82,20 +84,20 @@ instance Onion Address where
 data Location a
   = LocationAddress (Address a)
   | LocationLabel (Name a)
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion Location where
   peel (LocationAddress a) = peel a
   peel (LocationLabel a)   = peel a
 
 data SmallOpcode a = SmallOpcode a Vm.SmallOpcode
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion SmallOpcode where
   peel (SmallOpcode a _) = a
 
 data LargeOpcode a = LargeOpcode a Vm.LargeOpcode
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion LargeOpcode where
   peel (LargeOpcode a _) = a
@@ -103,14 +105,14 @@ instance Onion LargeOpcode where
 data MimaWord a
   = WordRaw a Vm.MimaWord
   | WordLocation (Location a)
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion MimaWord where
   peel (WordRaw a _)    = a
   peel (WordLocation a) = peel a
 
 data SmallValue a = SmallValue a Vm.SmallValue
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion SmallValue where
   peel (SmallValue a _) = a
@@ -118,7 +120,7 @@ instance Onion SmallValue where
 data Instruction a
   = SmallInstruction a (SmallOpcode a) (Location a)
   | LargeInstruction a (LargeOpcode a) (Maybe (SmallValue a))
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion Instruction where
   peel (SmallInstruction a _ _) = a
@@ -132,7 +134,7 @@ data RegisterDirective a
   | RegRa  a a (Location a)
   | RegSp  a a (Location a)
   | RegFp  a a (Location a)
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion RegisterDirective where
   peel (RegIar a _ _) = a
@@ -142,7 +144,7 @@ instance Onion RegisterDirective where
   peel (RegFp  a _ _) = a
 
 data JsonValue a = JsonValue a A.Value
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion JsonValue where
   peel (JsonValue a _) = a
@@ -157,7 +159,7 @@ data Directive a
   | Meta      a a (Name a) (JsonValue a)
   | MetaStart a a (Name a) (JsonValue a)
   | MetaStop  a a (Name a)
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion Directive where
   peel (Reg       a _ _)   = a
@@ -175,7 +177,7 @@ data AsmToken a
   | TokenComment a T.Text Bool
   -- ^ @'TokenComment' a text inline@ represents a comment.
   -- @inline@ is true if the comment is on the same line as an instruction or a label.
-  deriving (Show)
+  deriving (Show, Functor)
 
 instance Onion AsmToken where
   peel (TokenLabel a)       = peel a
@@ -191,7 +193,7 @@ instance Show Span where
       showPos pos =
         show (unPos $ sourceLine pos) ++ ":" ++ show (unPos $ sourceColumn pos)
 
-type Phase1 = [AsmToken Span]
+type Phase1 s = [AsmToken s]
 
 {- Parsing -}
 
@@ -381,7 +383,7 @@ lineParser = do
     comment $ not aloneOnLine
   pure $ ls ++ toList t ++ toList c
 
-parsePhase1 :: Parser Phase1
+parsePhase1 :: Parser (Phase1 Span)
 parsePhase1 = mconcat <$> sepBy lineParser newline <* eof
 
 {- Formatting -}
@@ -448,7 +450,7 @@ formatToken (TokenInstruction ins)  = "  " <> formatInstruction ins
 formatToken (TokenDirective dir)    = formatDirective dir
 formatToken (TokenComment _ text _) = ";" <> text
 
-formatPhase1 :: Phase1 -> T.Text
+formatPhase1 :: Phase1 a -> T.Text
 formatPhase1 (x:y@(TokenComment _ _ True):xs) = formatToken x <> " " <> formatPhase1 (y:xs)
 formatPhase1 (x:xs) = formatToken x <> "\n" <> formatPhase1 xs
 formatPhase1 [] = ""
