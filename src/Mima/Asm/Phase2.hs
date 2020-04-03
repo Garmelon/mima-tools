@@ -176,6 +176,13 @@ deriving instance Show s => Show (RegisterDirective 'S3 s)
 deriving instance Show s => Show (RegisterDirective 'S4 s)
 deriving instance Show s => Show (RegisterDirective 'S5 s)
 
+instance Onion (RegisterDirective t) where
+  peel (RegIar s _) = s
+  peel (RegAcc s _) = s
+  peel (RegRa  s _) = s
+  peel (RegSp  s _) = s
+  peel (RegFp  s _) = s
+
 type family TokenRegX (t :: Subphase) (s :: *)
 type instance TokenRegX 'S1 s = RegisterDirective 'S1 s
 type instance TokenRegX 'S2 s = RegisterDirective 'S2 s
@@ -235,11 +242,11 @@ p1ToP2RegDir (P1.RegRa  s _ loc)  = RegRa  s $ p1ToP2Location loc
 p1ToP2RegDir (P1.RegSp  s _ loc)  = RegSp  s $ p1ToP2Location loc
 p1ToP2RegDir (P1.RegFp  s _ loc)  = RegFp  s $ p1ToP2Location loc
 
-data MetaS1 s = MetaS1 s s (P1.Name s) (P1.JsonValue s)
+data MetaS1 s = MetaS1 s (P1.Name s) (P1.JsonValue s)
   deriving (Show)
 
 instance Onion MetaS1 where
-  peel (MetaS1 s _ _ _) = s
+  peel (MetaS1 s _ _) = s
 
 data StateS1 s = StateS1
   { s1Metas  :: Map.Map T.Text (MetaS1 s)
@@ -248,13 +255,13 @@ data StateS1 s = StateS1
 
 type WeedS1 s = StateT (StateS1 s) (Weed (WeedError s))
 
-s1AddMeta :: s -> s -> P1.Name s -> P1.JsonValue s -> WeedS1 s ()
-s1AddMeta s1 s2 name@(P1.Name namePos nameText) value = do
-  s <- get
-  when (nameText `Map.member` s1Metas s) $
-    lift $ harmless $ errorWith namePos undefined
-  let meta = MetaS1 s1 s2 name value
-  put s{s1Metas = Map.insert nameText meta $ s1Metas s}
+s1AddMeta :: s -> P1.Name s -> P1.JsonValue s -> WeedS1 s ()
+s1AddMeta s name@(P1.Name namePos nameText) value = do
+  s1 <- get
+  when (nameText `Map.member` s1Metas s1) $
+    lift $ harmless $ errorWith namePos "duplicate .meta names"
+  let meta = MetaS1 s name value
+  put s1{s1Metas = Map.insert nameText meta $ s1Metas s1}
 
 s1TakeMetas :: WeedS1 s [MetaS1 s]
 s1TakeMetas = do
@@ -265,13 +272,12 @@ s1TakeMetas = do
 s1WithMetas :: WeedS1 s () -> WeedS1 s ()
 s1WithMetas f = do
   metas <- s1TakeMetas
-  for_ (reverse metas) $ \(MetaS1 s _ name value) ->
+  for_ (reverse metas) $ \(MetaS1 s name value) ->
     s1AddToken $ TokenMeta () $
     MetaStart s (p1ToP2Name name) (p1ToP2JsonValue value)
   f
-  for_ metas $ \(MetaS1 s _ name _) ->
-    s1AddToken $ TokenMeta () $
-    MetaStop s (p1ToP2Name name)
+  for_ metas $ \(MetaS1 s name _) ->
+    s1AddToken $ TokenMeta () $ MetaStop s (p1ToP2Name name)
 
 s1AddToken :: AsmToken 'S1 s -> WeedS1 s ()
 s1AddToken t = modify $ \s -> s{s1Tokens = t : s1Tokens s}
@@ -280,17 +286,18 @@ s1AddP1Token :: P1.AsmToken s -> WeedS1 s ()
 s1AddP1Token (P1.TokenLabel name) =
   s1AddToken $ TokenLabel () $ p1ToP2Name name
 s1AddP1Token (P1.TokenInstruction instr) =
-  s1AddToken $ TokenInstr () $ p1ToP2Instruction instr
+  s1WithMetas $ s1AddToken $ TokenInstr () $ p1ToP2Instruction instr
 s1AddP1Token (P1.TokenDirective (P1.Reg _ _ regDir)) =
   s1AddToken $ TokenReg () $ p1ToP2RegDir regDir
-s1AddP1Token (P1.TokenDirective (P1.Org _ _ addr)) =
+s1AddP1Token (P1.TokenDirective (P1.Org _ _ addr)) = do
+  s1WithMetas $ pure ()
   s1AddToken $ TokenOrg $ p1ToP2Address addr
 s1AddP1Token (P1.TokenDirective (P1.Lit _ _ w)) =
   s1WithMetas $ s1AddToken $ TokenLit () $ p1ToP2Word w
 s1AddP1Token (P1.TokenDirective (P1.Arr _ _ ws)) =
   s1WithMetas $ for_ ws $ s1AddToken . TokenLit () . p1ToP2Word
-s1AddP1Token (P1.TokenDirective (P1.Meta s1 s2 name value)) =
-  s1AddMeta s1 s2 name value
+s1AddP1Token (P1.TokenDirective (P1.Meta s _ name value)) =
+  s1AddMeta s name value
 s1AddP1Token (P1.TokenDirective (P1.MetaStart s _ name value)) =
   s1AddToken $ TokenMeta () $
   MetaStart s (p1ToP2Name name) (p1ToP2JsonValue value)
@@ -301,7 +308,7 @@ s1AddP1Token P1.TokenComment{} = pure ()
 phaseS1 :: P1.Phase1 s -> Weed (WeedError s) (Phase2 'S1 s)
 phaseS1 ts = do
   let initialS = StateS1 Map.empty []
-  s <- execStateT (traverse_ s1AddP1Token ts) initialS
-  for_ (Map.elems $ s1Metas s) $ \m ->
-    harmless $ errorWith (peel m) "unconsumed .meta"
+  s <- flip execStateT initialS $ do
+    traverse_ s1AddP1Token ts
+    s1WithMetas $ pure ()
   pure $ s1Tokens s
