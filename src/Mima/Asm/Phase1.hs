@@ -1,10 +1,10 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Mima.Asm.Phase1
-  ( Onion(..)
+  (
   -- * Types
-  , Name(..)
+    Name(..)
   , Address(..)
   , Location(..)
   , SmallOpcode(..)
@@ -38,6 +38,7 @@ import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import           Text.Megaparsec.Char.Lexer hiding (space)
 
+import           Mima.Asm.Types
 import           Mima.Format
 import qualified Mima.Vm.Instruction        as Vm
 import qualified Mima.Vm.Word               as Vm
@@ -60,9 +61,6 @@ import qualified Mima.Vm.Word               as Vm
 .meta-start <name> [<json value>]
 .meta-stop <name>
 -}
-
-class Onion o where
-  peel :: o a -> a
 
 {- Types -}
 
