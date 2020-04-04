@@ -63,6 +63,7 @@ harmless :: e -> Weed e ()
 harmless e = Weed (Endo (e:)) (Right ())
 
 data WeedError a = WeedError a String
+  deriving (Show)
 
 instance Functor WeedError where
   fmap f (WeedError a s) = WeedError (f a) s
