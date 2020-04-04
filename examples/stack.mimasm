@@ -163,11 +163,11 @@ callee:
   STV tmp3 ; For comparison in loop
   STV tmp4 ; For accumulating result
 
-  callee-loop:
+  callee_loop:
   ; Break if counter (tmp1) is zero
   LDV tmp1
   EQL tmp3
-  JMN callee-loop-end
+  JMN callee_loop_end
   ; Decrement counter (tmp1) by 1
   LDV tmp1
   ADC -1
@@ -177,9 +177,9 @@ callee:
   ADD tmp2
   STV tmp4
   ; And repeat the loop
-  JMP callee-loop
+  JMP callee_loop
   
-  callee-loop-end:
+  callee_loop_end:
   ; Save the result in return value 2
   LDV tmp4
   STRF 2

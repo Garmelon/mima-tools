@@ -213,7 +213,7 @@ withSpan f = do
 name :: Parser (Name Span)
 name = fmap (uncurry Name) $ withSpan $ do
   firstChar <- satisfy isLower <?> "lowercase character"
-  otherChars <- takeWhileP (Just "alphanumeric character") isAlphaNum
+  otherChars <- takeWhileP (Just "alphanumeric character or '_'") (\c -> isAlphaNum c || c == '_')
   pure $ T.pack [firstChar] <> otherChars
 
 number :: (Num a) => Parser a
