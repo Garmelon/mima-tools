@@ -344,11 +344,11 @@ s2SetAddress s newAddress = do
   s2 <- get
   let oldAddress = s2CurrentAddress s2
   when (oldAddress > newAddress) $
-    lift $ harmless $ errorWith s "address must not be smaller than current"
-  put $ s2
-    { s2CurrentAddress = newAddress
-    , s2AddressFilled = if newAddress == oldAddress then s2AddressFilled s2 else False
-    }
+    lift $ harmless $
+    errorWith s "new address must not be smaller than current address"
+  put $ s2{s2CurrentAddress = newAddress}
+  when (newAddress /= oldAddress) $
+    modify $ \s2' -> s2'{s2AddressFilled = False}
 
 s2NextAddress :: s -> WeedS2 s Vm.MimaAddress
 s2NextAddress s = do
@@ -356,29 +356,39 @@ s2NextAddress s = do
   when (s2AddressFilled s2) $ s2AddAddress s 1
   pure $ s2CurrentAddress s2
 
-s2ConvertLocation :: LocationX 'S1 s -> WeedS2 s (LocationX 'S2 s)
-s2ConvertLocation (Loc1Absolute s addr) = pure $ Loc2Absolute s addr
-s2ConvertLocation (Loc1Label name) = pure $ Loc2Label name
-s2ConvertLocation (Loc1Relative s delta) = do
-  address <- s2CurrentAddress <$> get
-  -- TODO: Check if out of bounds? Or just silently modulo?
-  pure $ Loc2Absolute s (address + fromIntegral delta)
+s2ConvertLocation :: Vm.MimaAddress -> LocationX 'S1 s -> WeedS2 s (LocationX 'S2 s)
+s2ConvertLocation _ (Loc1Absolute s addr)  = pure $ Loc2Absolute s addr
+s2ConvertLocation _ (Loc1Label name)       = pure $ Loc2Label name
+s2ConvertLocation baseAddr (Loc1Relative s delta) = do
+  let newAddr = toInteger baseAddr + delta
+      minAddr = toInteger (minBound :: Vm.MimaAddress)
+      maxAddr = toInteger (maxBound :: Vm.MimaAddress)
+  when (newAddr < minAddr || newAddr > maxAddr) $
+    lift $ harmless $ errorWith s $ "address out of bounds: " ++ show newAddr
+  pure $ Loc2Absolute s $ fromInteger newAddr
 
-s2ConvertMimaWord :: MimaWord 'S1 s -> WeedS2 s (MimaWord 'S2 s)
-s2ConvertMimaWord (WordLocation loc) = WordLocation <$> s2ConvertLocation loc
-s2ConvertMimaWord (WordRaw word)     = pure $ WordRaw word
+s2ConvertMimaWord :: Vm.MimaAddress -> MimaWord 'S1 s -> WeedS2 s (MimaWord 'S2 s)
+s2ConvertMimaWord baseAddr (WordLocation loc) =
+  WordLocation <$> s2ConvertLocation baseAddr loc
+s2ConvertMimaWord _ (WordRaw word) = pure $ WordRaw word
 
-s2ConvertInstruction :: Instruction 'S1 s -> WeedS2 s (Instruction 'S2 s)
-s2ConvertInstruction (SmallInstruction opcode loc)
-  = SmallInstruction opcode <$> s2ConvertLocation loc
-s2ConvertInstruction (LargeInstruction opcode val) = pure $ LargeInstruction opcode val
+s2ConvertInstruction :: Vm.MimaAddress -> Instruction 'S1 s -> WeedS2 s (Instruction 'S2 s)
+s2ConvertInstruction baseAddr (SmallInstruction opcode loc) =
+  SmallInstruction opcode <$> s2ConvertLocation baseAddr loc
+s2ConvertInstruction _ (LargeInstruction opcode val) =
+  pure $ LargeInstruction opcode val
 
-s2ConvertRegisterDirective :: RegisterDirective 'S1 s -> WeedS2 s (RegisterDirective 'S2 s)
-s2ConvertRegisterDirective (RegIar s loc)  = RegIar s <$> s2ConvertLocation loc
-s2ConvertRegisterDirective (RegAcc s word) = RegAcc s <$> s2ConvertMimaWord word
-s2ConvertRegisterDirective (RegRa  s loc)  = RegRa  s <$> s2ConvertLocation loc
-s2ConvertRegisterDirective (RegSp  s loc)  = RegSp  s <$> s2ConvertLocation loc
-s2ConvertRegisterDirective (RegFp  s loc)  = RegFp  s <$> s2ConvertLocation loc
+s2ConvertRegisterDirective :: Vm.MimaAddress -> RegisterDirective 'S1 s -> WeedS2 s (RegisterDirective 'S2 s)
+s2ConvertRegisterDirective baseAddr (RegIar s loc) =
+  RegIar s <$> s2ConvertLocation baseAddr loc
+s2ConvertRegisterDirective baseAddr (RegAcc s word) =
+  RegAcc s <$> s2ConvertMimaWord baseAddr word
+s2ConvertRegisterDirective baseAddr (RegRa s loc) =
+  RegRa s <$> s2ConvertLocation baseAddr loc
+s2ConvertRegisterDirective baseAddr (RegSp s loc) =
+  RegSp s <$> s2ConvertLocation baseAddr loc
+s2ConvertRegisterDirective baseAddr (RegFp s loc) =
+  RegFp s <$> s2ConvertLocation baseAddr loc
 
 s2ConvertP2Token :: AsmToken 'S1 s -> WeedS2 s (Maybe (AsmToken 'S2 s))
 s2ConvertP2Token (TokenOrg _ (OrgAddrAbsolute s address))
@@ -394,14 +404,14 @@ s2ConvertP2Token (TokenMeta s _ meta) = do
   pure $ Just $ TokenMeta s address meta
 s2ConvertP2Token (TokenLit s _ word) = do
   address <- s2NextAddress s
-  newWord <- s2ConvertMimaWord word
+  newWord <- s2ConvertMimaWord address word
   pure $ Just $ TokenLit s address newWord
 s2ConvertP2Token (TokenInstr s _ instr) = do
   address <- s2NextAddress s
-  Just . TokenInstr s address <$> s2ConvertInstruction instr
+  Just . TokenInstr s address <$> s2ConvertInstruction address instr
 s2ConvertP2Token (TokenReg s _ reg) = do
   address <- s2CurrentAddress <$> get
-  Just . TokenReg s address <$> s2ConvertRegisterDirective reg
+  Just . TokenReg s address <$> s2ConvertRegisterDirective address reg
 
 phaseS2 :: Phase2 'S1 s -> Weed (WeedError s) (Phase2 'S2 s)
 phaseS2 s1 = do
