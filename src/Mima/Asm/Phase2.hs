@@ -1,8 +1,9 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Mima.Asm.Phase2
   ( phaseS1 -- TODO only leave the proper types
@@ -53,22 +54,26 @@ data Location1 s
   = Loc1Absolute s Vm.MimaAddress
   | Loc1Relative s Integer
   | Loc1Label (Name s)
+  | Loc1LabelRel s (Name s) s Integer
   deriving (Show, Functor)
 
 instance Onion Location1 where
-  peel (Loc1Absolute s _) = s
-  peel (Loc1Relative s _) = s
-  peel (Loc1Label l)      = peel l
+  peel (Loc1Absolute s _)     = s
+  peel (Loc1Relative s _)     = s
+  peel (Loc1Label l)          = peel l
+  peel (Loc1LabelRel s _ _ _) = s
 
 -- | A location defined by an absolute address or by a label.
 data Location2 s
   = Loc2Absolute s Vm.MimaAddress
   | Loc2Label (Name s)
+  | Loc2LabelRel s (Name s) s Integer
   deriving (Show, Functor)
 
 instance Onion Location2 where
-  peel (Loc2Absolute s _) = s
-  peel (Loc2Label l)      = peel l
+  peel (Loc2Absolute s _)     = s
+  peel (Loc2Label l)          = peel l
+  peel (Loc2LabelRel s _ _ _) = s
 
 -- | A type family for locations in various stages of resolution.
 type family LocationX (t :: Subphase) (s :: *)
@@ -224,33 +229,45 @@ p1ToP2Name (P1.Name s text) = Name s text
 p1ToP2JsonValue :: P1.JsonValue s -> JsonValue s
 p1ToP2JsonValue (P1.JsonValue s value) = JsonValue s value
 
-p1ToP2Address :: P1.Address s -> OrgAddress s
-p1ToP2Address (P1.AddressAbsolute s addr)   = OrgAddrAbsolute s addr
-p1ToP2Address (P1.AddressRelative s offset) = OrgAddrRelative s offset
+intToBounded :: forall s n. (Bounded n, Integral n) => s -> Integer -> Weed (WeedError s) n
+intToBounded s val = do
+  when (val < minVal || val > maxVal) $
+    harmless $ errorWith s "value out of bounds"
+  pure $ fromInteger val
+  where
+    maxVal = toInteger (maxBound :: n)
+    minVal = -maxVal - 1
 
-p1ToP2Location :: P1.Location s -> Location1 s
-p1ToP2Location (P1.LocationAddress (P1.AddressAbsolute s addr)) =
-  Loc1Absolute s addr
+p1ToP2Address :: P1.Address s -> WeedS1 s (OrgAddress s)
+p1ToP2Address (P1.AddressAbsolute s addr)   = lift $ OrgAddrAbsolute s <$> intToBounded s addr
+p1ToP2Address (P1.AddressRelative s offset) = pure $ OrgAddrRelative s offset
+
+p1ToP2Location :: P1.Location s -> WeedS1 s (Location1 s)
+p1ToP2Location (P1.LocationAddress (P1.AddressAbsolute s addr)) = lift $ Loc1Absolute s <$> intToBounded s addr
 p1ToP2Location (P1.LocationAddress (P1.AddressRelative s offset)) =
-  Loc1Relative s offset
-p1ToP2Location (P1.LocationLabel name) = Loc1Label $ p1ToP2Name name
+  pure $ Loc1Relative s offset
+p1ToP2Location (P1.LocationLabel name) = pure $ Loc1Label $ p1ToP2Name name
+p1ToP2Location (P1.LocationLabelRel s name s1 offset)
+  = pure $ Loc1LabelRel s (p1ToP2Name name) s1 offset
 
-p1ToP2Instruction :: P1.Instruction s -> Instruction 'S1 s
-p1ToP2Instruction (P1.SmallInstruction _ (P1.SmallOpcode _ so) loc) =
-  SmallInstruction so $ p1ToP2Location loc
-p1ToP2Instruction (P1.LargeInstruction _ (P1.LargeOpcode _ lo) maybeSv) =
-  LargeInstruction lo $ fmap (\(P1.SmallValue _ sv) -> sv) maybeSv
+p1ToP2Instruction :: P1.Instruction s -> WeedS1 s (Instruction 'S1 s)
+p1ToP2Instruction (P1.SmallInstruction _ (P1.SmallOpcode _ so) loc) = SmallInstruction so <$> p1ToP2Location loc
+p1ToP2Instruction (P1.LargeInstruction _ (P1.LargeOpcode _ lo) maybeSv) = do
+  val <- case maybeSv of
+    Nothing                  -> pure Nothing
+    Just (P1.SmallValue s v) -> lift $ Just <$> intToBounded s v
+  pure $ LargeInstruction lo val
 
-p1ToP2Word :: P1.MimaWord s -> MimaWord 'S1 s
-p1ToP2Word (P1.WordRaw _ w)      = WordRaw w
-p1ToP2Word (P1.WordLocation loc) = WordLocation $ p1ToP2Location loc
+p1ToP2Word :: P1.MimaWord s -> WeedS1 s (MimaWord 'S1 s)
+p1ToP2Word (P1.WordRaw s w)      = lift $ WordRaw <$> intToBounded s w
+p1ToP2Word (P1.WordLocation loc) = WordLocation <$> p1ToP2Location loc
 
-p1ToP2RegDir :: P1.RegisterDirective s -> RegisterDirective 'S1 s
-p1ToP2RegDir (P1.RegIar s _ loc)  = RegIar s $ p1ToP2Location loc
-p1ToP2RegDir (P1.RegAcc s _ word) = RegAcc s $ p1ToP2Word word
-p1ToP2RegDir (P1.RegRa  s _ loc)  = RegRa  s $ p1ToP2Location loc
-p1ToP2RegDir (P1.RegSp  s _ loc)  = RegSp  s $ p1ToP2Location loc
-p1ToP2RegDir (P1.RegFp  s _ loc)  = RegFp  s $ p1ToP2Location loc
+p1ToP2RegDir :: P1.RegisterDirective s -> WeedS1 s (RegisterDirective 'S1 s)
+p1ToP2RegDir (P1.RegIar s _ loc)  = RegIar s <$> p1ToP2Location loc
+p1ToP2RegDir (P1.RegAcc s _ word) = RegAcc s <$> p1ToP2Word word
+p1ToP2RegDir (P1.RegRa  s _ loc)  = RegRa  s <$> p1ToP2Location loc
+p1ToP2RegDir (P1.RegSp  s _ loc)  = RegSp  s <$> p1ToP2Location loc
+p1ToP2RegDir (P1.RegFp  s _ loc)  = RegFp  s <$> p1ToP2Location loc
 
 {- Subphase 1 -}
 
@@ -297,17 +314,23 @@ s1AddToken t = modify $ \s -> s{s1Tokens = t : s1Tokens s}
 s1AddP1Token :: P1.AsmToken s -> WeedS1 s ()
 s1AddP1Token (P1.TokenLabel name) =
   s1AddToken $ TokenLabel (peel name) () $ p1ToP2Name name
-s1AddP1Token (P1.TokenInstruction instr) =
-  s1WithMetas $ s1AddToken $ TokenInstr (peel instr) () $ p1ToP2Instruction instr
-s1AddP1Token (P1.TokenDirective (P1.Reg s _ regDir)) =
-  s1AddToken $ TokenReg s () $ p1ToP2RegDir regDir
+s1AddP1Token (P1.TokenInstruction instr) = do
+  i <- p1ToP2Instruction instr
+  s1WithMetas $ s1AddToken $ TokenInstr (peel instr) () i
+s1AddP1Token (P1.TokenDirective (P1.Reg s _ regDir)) = do
+  r <- p1ToP2RegDir regDir
+  s1AddToken $ TokenReg s () r
 s1AddP1Token (P1.TokenDirective (P1.Org s _ addr)) = do
   s1WithMetas $ pure ()
-  s1AddToken $ TokenOrg s $ p1ToP2Address addr
-s1AddP1Token (P1.TokenDirective (P1.Lit s _ w)) =
-  s1WithMetas $ s1AddToken $ TokenLit s () $ p1ToP2Word w
+  a <- p1ToP2Address addr
+  s1AddToken $ TokenOrg s a
+s1AddP1Token (P1.TokenDirective (P1.Lit s _ word)) = do
+  w <- p1ToP2Word word
+  s1WithMetas $ s1AddToken $ TokenLit s () w
 s1AddP1Token (P1.TokenDirective (P1.Arr s _ ws)) =
-  s1WithMetas $ for_ ws $ s1AddToken . TokenLit s () . p1ToP2Word
+  s1WithMetas $ for_ ws $ \word -> do
+    w <- p1ToP2Word word
+    pure $ s1AddToken $ TokenLit s () w
 s1AddP1Token (P1.TokenDirective (P1.Meta s _ name value)) =
   s1AddMeta s name value
 s1AddP1Token (P1.TokenDirective (P1.MetaStart s _ name value)) =
@@ -359,13 +382,12 @@ s2NextAddress s = do
 s2ConvertLocation :: Vm.MimaAddress -> LocationX 'S1 s -> WeedS2 s (LocationX 'S2 s)
 s2ConvertLocation _ (Loc1Absolute s addr)  = pure $ Loc2Absolute s addr
 s2ConvertLocation _ (Loc1Label name)       = pure $ Loc2Label name
+s2ConvertLocation _ (Loc1LabelRel s name s1 offset)
+  = pure $ Loc2LabelRel s name s1 offset
 s2ConvertLocation baseAddr (Loc1Relative s delta) = do
   let newAddr = toInteger baseAddr + delta
-      minAddr = toInteger (minBound :: Vm.MimaAddress)
-      maxAddr = toInteger (maxBound :: Vm.MimaAddress)
-  when (newAddr < minAddr || newAddr > maxAddr) $
-    lift $ harmless $ errorWith s $ "address out of bounds: " ++ show newAddr
-  pure $ Loc2Absolute s $ fromInteger newAddr
+  val <- lift $ intToBounded s newAddr
+  pure $ Loc2Absolute s val
 
 s2ConvertMimaWord :: Vm.MimaAddress -> MimaWord 'S1 s -> WeedS2 s (MimaWord 'S2 s)
 s2ConvertMimaWord baseAddr (WordLocation loc) =

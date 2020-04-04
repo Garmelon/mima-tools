@@ -41,7 +41,6 @@ import           Text.Megaparsec.Char.Lexer hiding (space)
 import           Mima.Asm.Types
 import           Mima.Format
 import qualified Mima.Vm.Instruction        as Vm
-import qualified Mima.Vm.Word               as Vm
 
 {-
 <value>       := <word> | <address>
@@ -71,7 +70,7 @@ instance Onion Name where
   peel (Name a _) = a
 
 data Address a
-  = AddressAbsolute a Vm.MimaAddress
+  = AddressAbsolute a Integer
   | AddressRelative a Integer
   deriving (Show, Functor)
 
@@ -82,11 +81,14 @@ instance Onion Address where
 data Location a
   = LocationAddress (Address a)
   | LocationLabel (Name a)
+  | LocationLabelRel a (Name a) a Integer
+  -- ^ @Lo LocationLabelRel completeSpan name offsetSpan offset@
   deriving (Show, Functor)
 
 instance Onion Location where
-  peel (LocationAddress a) = peel a
-  peel (LocationLabel a)   = peel a
+  peel (LocationAddress a)        = peel a
+  peel (LocationLabel a)          = peel a
+  peel (LocationLabelRel a _ _ _) = a
 
 data SmallOpcode a = SmallOpcode a Vm.SmallOpcode
   deriving (Show, Functor)
@@ -101,7 +103,7 @@ instance Onion LargeOpcode where
   peel (LargeOpcode a _) = a
 
 data MimaWord a
-  = WordRaw a Vm.MimaWord
+  = WordRaw a Integer
   | WordLocation (Location a)
   deriving (Show, Functor)
 
@@ -109,7 +111,7 @@ instance Onion MimaWord where
   peel (WordRaw a _)    = a
   peel (WordLocation a) = peel a
 
-data SmallValue a = SmallValue a Vm.SmallValue
+data SmallValue a = SmallValue a Integer
   deriving (Show, Functor)
 
 instance Onion SmallValue where
@@ -223,31 +225,26 @@ number =
   (chunk "0x" *> hexadecimal) <|>
   decimal
 
-optionallySignedNumber :: (Num a) => Parser a
-optionallySignedNumber = signed (pure ()) number -- do not allow any space
-
 signedNumber :: (Num a) => Parser a
-signedNumber = lookAhead (char '+' <|> char '-') *> optionallySignedNumber
-
-boundedNumber :: (Bounded n, Num n) => Parser n
-boundedNumber = do
-  n <- optionallySignedNumber :: Parser Integer
-  when (n < minVal || n > maxVal) $ fail $
-    "invalid range: " ++
-    show n ++ " is not between " ++
-    show minVal ++ " and " ++ show maxVal
-  pure $ fromInteger n
-  where
-    maxVal = toInteger (maxBound :: Vm.MimaWord)
-    minVal = -(maxVal + 1)
+signedNumber = signed (pure ()) number -- do not allow any space
 
 address :: Parser (Address Span)
 address =
-  fmap (uncurry AddressRelative) (withSpan signedNumber) <|>
-  fmap (uncurry AddressAbsolute) (withSpan boundedNumber)
+  fmap (uncurry AddressRelative) (withSpan $ between (char '[') (char ']') signedNumber) <|>
+  fmap (uncurry AddressAbsolute) (withSpan signedNumber)
+
+labelWithOffset :: Parser (Location Span)
+labelWithOffset = do
+  (completeSpan, (n, offsetSpan, offset)) <- withSpan $ do
+    n <- name
+    (offsetSpan, offset) <- withSpan $ between (char '[') (char ']') signedNumber
+    pure (n, offsetSpan, offset)
+
+  pure $ LocationLabelRel completeSpan n offsetSpan offset
 
 location :: Parser (Location Span)
-location = (LocationAddress <$> address) <|> (LocationLabel <$> name)
+location =
+  (LocationAddress <$> address) <|> try labelWithOffset <|> (LocationLabel <$> name)
 
 smallOpcode :: Parser (SmallOpcode Span)
 smallOpcode = asum $ map parseOpcode [minBound..maxBound]
@@ -265,10 +262,10 @@ largeOpcode = asum $ map parseOpcode [minBound..maxBound]
 
 mimaWord :: Parser (MimaWord Span)
 mimaWord =
-  (uncurry WordRaw <$> withSpan boundedNumber) <|> (WordLocation <$> location)
+  (uncurry WordRaw <$> withSpan signedNumber) <|> (WordLocation <$> location)
 
 smallValue :: Parser (SmallValue Span)
-smallValue = uncurry SmallValue <$> withSpan boundedNumber
+smallValue = uncurry SmallValue <$> withSpan signedNumber
 
 instruction :: Parser (Instruction Span)
 instruction = small <|> large
@@ -363,7 +360,7 @@ labels = do
       ls <- many $ try $ inlineSpace1 *> label_
       pure $ l : ls
   where
-    label_ = (TokenLabel <$> name) <* (inlineSpace <* char ':')
+    label_ = (TokenLabel <$> name) <* char ':'
 
 -- | Parses a single line consisting of zero or more tokens:
 -- inlineSpace, zero or more labels, zero or more instructions/directives,
@@ -398,6 +395,8 @@ formatAddress (AddressRelative _ rel)
 formatLocation :: Location a -> T.Text
 formatLocation (LocationAddress addr) = formatAddress addr
 formatLocation (LocationLabel l)      = formatName l
+formatLocation (LocationLabelRel _ l _ offset)
+  = formatName l <> "[" <> toDec offset <> "]"
 
 formatSmallOpcode :: SmallOpcode a -> T.Text
 formatSmallOpcode (SmallOpcode _ opcode) = T.pack $ show opcode
