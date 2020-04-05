@@ -132,23 +132,25 @@ instance Onion JsonValue where
 -- | The first @a@ parameter represents the span of the whole thing. The second
 -- @a@ parameter represents the span of the directive literal (e. g. @.org@).
 data Directive a
-  = Reg       a a (RegisterDirective a)
-  | Org       a a (Address a)
-  | Lit       a a (MimaWord a)
-  | Arr       a a [MimaWord a]
-  | Meta      a a (Name a) (JsonValue a)
-  | MetaStart a a (Name a) (JsonValue a)
-  | MetaStop  a a (Name a)
+  = Reg        a a (RegisterDirective a)
+  | Org        a a (Address a)
+  | Lit        a a (MimaWord a)
+  | Arr        a a [MimaWord a]
+  | MetaGlobal a a (Name a) (JsonValue a)
+  | MetaStart  a a (Name a) (JsonValue a)
+  | MetaStop   a a (Name a)
+  | Meta       a a (Name a) (JsonValue a)
   deriving (Show, Functor)
 
 instance Onion Directive where
-  peel (Reg       a _ _)   = a
-  peel (Org       a _ _)   = a
-  peel (Lit       a _ _)   = a
-  peel (Arr       a _ _)   = a
-  peel (Meta      a _ _ _) = a
-  peel (MetaStart a _ _ _) = a
-  peel (MetaStop  a _ _)   = a
+  peel (Reg        a _ _)   = a
+  peel (Org        a _ _)   = a
+  peel (Lit        a _ _)   = a
+  peel (Arr        a _ _)   = a
+  peel (MetaGlobal a _ _ _) = a
+  peel (MetaStart  a _ _ _) = a
+  peel (MetaStop   a _ _)   = a
+  peel (Meta       a _ _ _) = a
 
 -- | A single token. The @s@ type parameter is the type of location annotations.
 data AsmToken a

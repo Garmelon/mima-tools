@@ -27,10 +27,13 @@ module Mima.Asm.Phase2.Types
   , TokenMetaX
   -- ** Instruction token
   , MimaWord(..)
+  , idWord
   , Instruction(..)
+  , idInstruction
   , TokenInstrX
   -- ** Register token
   , RegisterDirective(..)
+  , idRegDir
   , TokenRegX
   ) where
 
@@ -46,11 +49,11 @@ data Subphase
   -- ^ Freshly converted from 'Phase1'. Arrays are converted into multiple
   -- literal values. Comments are removed.
   | S2
-  -- ^ After resolving all .org-s and relative positions and assigning each
+  -- ^ After resolving all @.org@s and relative positions and assigning each
   -- token an address.
   | S3
-  -- ^ After extracting and removing all labels and .meta-s. This step results
-  -- in a map to resolve labels and a complete set of .meta-* metadata.
+  -- ^ After extracting and removing all labels and @.meta@s. This step results
+  -- in a map to resolve labels and a complete set of @.meta-*@ metadata.
   | S4
   -- ^ After resolving all labels. Instructions are converted into literal
   -- values.
@@ -139,13 +142,17 @@ instance Onion JsonValue where
 
 -- | A representation for .meta-start and .meta-stop directives.
 data Meta s
-  = MetaStart s (Name s) (JsonValue s)
-  | MetaStop  s (Name s)
+  = Meta       s (Name s) (JsonValue s)
+  | MetaStart  s (Name s) (JsonValue s)
+  | MetaStop   s (Name s)
+  | MetaGlobal s (Name s) (JsonValue s)
   deriving (Show, Functor)
 
 instance Onion Meta where
-  peel (MetaStart s _ _) = s
-  peel (MetaStop s _)    = s
+  peel (Meta       s _ _) = s
+  peel (MetaStart  s _ _) = s
+  peel (MetaStop   s _)   = s
+  peel (MetaGlobal s _ _) = s
 
 type family TokenMetaX (t :: Subphase) (s :: *)
 type instance TokenMetaX 'S1 s = Meta s
@@ -160,6 +167,10 @@ data MimaWord (t :: Subphase) (s :: *)
   = WordRaw Vm.MimaWord
   | WordLocation (LocationX t s)
 
+idWord :: (LocationX a s ~ LocationX b s) => MimaWord a s -> MimaWord b s
+idWord (WordRaw word)     = WordRaw word
+idWord (WordLocation loc) = WordLocation loc
+
 deriving instance Show s => Show (MimaWord 'S1 s)
 deriving instance Show s => Show (MimaWord 'S2 s)
 deriving instance Show s => Show (MimaWord 'S3 s)
@@ -171,6 +182,10 @@ deriving instance Show s => Show (MimaWord 'S5 s)
 data Instruction (t :: Subphase) (s :: *)
   = SmallInstruction Vm.SmallOpcode (LocationX t s)
   | LargeInstruction Vm.LargeOpcode (Maybe Vm.SmallValue)
+
+idInstruction :: (LocationX a s ~ LocationX b s) => Instruction a s -> Instruction b s
+idInstruction (SmallInstruction so loc) = SmallInstruction so loc
+idInstruction (LargeInstruction lo sv)  = LargeInstruction lo sv
 
 deriving instance Show s => Show (Instruction 'S1 s)
 deriving instance Show s => Show (Instruction 'S2 s)
@@ -191,6 +206,13 @@ data RegisterDirective (t :: Subphase) (s :: *)
   | RegRa  s (LocationX t s)
   | RegSp  s (LocationX t s)
   | RegFp  s (LocationX t s)
+
+idRegDir :: (LocationX a s ~ LocationX b s) => RegisterDirective a s -> RegisterDirective b s
+idRegDir (RegIar s loc)  = RegIar s loc
+idRegDir (RegAcc s word) = RegAcc s $ idWord word
+idRegDir (RegRa s loc)   = RegRa s loc
+idRegDir (RegSp s loc)   = RegSp s loc
+idRegDir (RegFp s loc)   = RegFp s loc
 
 deriving instance Show s => Show (RegisterDirective 'S1 s)
 deriving instance Show s => Show (RegisterDirective 'S2 s)

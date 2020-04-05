@@ -63,11 +63,13 @@ formatDirective (Org _ _ addr)   = ".org " <> formatAddress addr
 formatDirective (Lit _ _ val)    = ".lit " <> formatMimaWord val
 formatDirective (Arr _ _ vals) =
   ".arr [" <> T.intercalate ", " (map formatMimaWord vals) <> "]"
-formatDirective (Meta _ _ n val) =
-  ".meta " <> formatName n <> " " <> formatJsonValue val
+formatDirective (MetaGlobal _ _ n val) =
+  ".meta-global " <> formatName n <> " " <> formatJsonValue val
 formatDirective (MetaStart _ _ n val) =
   ".meta-start " <> formatName n <> " " <> formatJsonValue val
 formatDirective (MetaStop _ _ n) = ".meta-stop " <> formatName n
+formatDirective (Meta _ _ n val) =
+  ".meta " <> formatName n <> " " <> formatJsonValue val
 
 formatToken :: AsmToken a -> T.Text
 formatToken (TokenLabel n)          = formatName n <> ":"

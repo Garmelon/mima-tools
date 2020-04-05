@@ -138,15 +138,38 @@ registerDirective =
   singleDirective RegSp  "SP"  location <|>
   singleDirective RegFp  "FP"  location
 
+jsonValue :: Parser (JsonValue Span)
+jsonValue = do
+  (valueSpan, jsonText) <- withSpan $ takeWhile1P (Just "json value") (/= '\n')
+  let jsonBS = BS.fromStrict $ T.encodeUtf8 jsonText
+  case A.eitherDecode jsonBS of
+    Left msg    -> fail msg
+    Right value -> pure $ JsonValue valueSpan value
+
+metaValue
+  :: (Span -> Span -> Name Span -> JsonValue Span -> Directive Span)
+  -> T.Text
+  -> Parser (Directive Span)
+metaValue constructor dirName = do
+  (outerSpan, (dirSpan, metaName, value)) <- withSpan $ do
+    (dirSpan, _) <- withSpan $ chunk dirName
+    inlineSpace1
+    metaName <- name
+    inlineSpace1
+    value <- jsonValue
+    pure (dirSpan, metaName, value)
+  pure $ constructor outerSpan dirSpan metaName value
+
 directive :: Parser (Directive Span)
 directive =
   singleDirective Reg ".reg" registerDirective <|>
   singleDirective Org ".org" address           <|>
   singleDirective Lit ".lit" mimaWord          <|>
   arr                                          <|>
-  metaStart MetaStart ".meta-start"            <|>
+  metaValue MetaGlobal ".meta-global"          <|>
+  metaValue MetaStart ".meta-start"            <|>
   singleDirective MetaStop ".meta-stop" name   <|>
-  metaStart Meta ".meta"
+  metaValue Meta ".meta"
   where
     arr = do
       (outerSpan, (regSpan, mimaWords)) <- withSpan $ do
@@ -156,23 +179,6 @@ directive =
           sepBy1 mimaWord (char ',' *> inlineSpace)
         pure (dirSpan, mimaWords)
       pure $ Arr outerSpan regSpan mimaWords
-
-    metaStart f keyword = do
-      (outerSpan, (regSpan, metaName, jsonValue)) <- withSpan $ do
-        (dirSpan, _) <- withSpan $ chunk keyword
-        inlineSpace1
-        metaName <- name
-        inlineSpace1
-
-        (valueSpan, rawJsonValue) <- withSpan $ do
-          metaValueBS <- BS.fromStrict . T.encodeUtf8
-            <$> takeWhile1P (Just "json value") (/= '\n')
-          case A.eitherDecode metaValueBS of
-            Left msg    -> fail msg
-            Right value -> pure value
-
-        pure (dirSpan, metaName, JsonValue valueSpan rawJsonValue)
-      pure $ f outerSpan regSpan metaName jsonValue
 
 comment :: Bool -> Parser (AsmToken Span)
 comment inline = fmap (\(s, text) -> TokenComment s text inline) $ withSpan $
