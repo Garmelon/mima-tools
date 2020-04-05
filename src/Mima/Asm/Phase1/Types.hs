@@ -150,6 +150,7 @@ instance Onion Directive where
   peel (MetaStart a _ _ _) = a
   peel (MetaStop  a _ _)   = a
 
+-- | A single token. The @s@ type parameter is the type of location annotations.
 data AsmToken a
   = TokenLabel (Name a)
   | TokenInstruction (Instruction a)
@@ -165,4 +166,6 @@ instance Onion AsmToken where
   peel (TokenDirective a)   = peel a
   peel (TokenComment a _ _) = a
 
+-- | Representation of an assembly file in phase 1. The @s@ type parameter is
+-- the type of location annotations.
 type Phase1 s = [AsmToken s]

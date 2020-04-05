@@ -11,7 +11,7 @@ import           Data.Foldable
 import qualified Data.Map.Strict           as Map
 import qualified Data.Text                 as T
 
-import qualified Mima.Asm.Phase1.Types     as P1
+import qualified Mima.Asm.Phase1           as P1
 import           Mima.Asm.Phase2.Types
 import           Mima.Asm.Phase2.Util
 import           Mima.Asm.Types
