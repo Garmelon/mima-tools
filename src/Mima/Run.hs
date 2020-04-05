@@ -54,7 +54,7 @@ protect m = do
   result <- liftIO $ tryIOError m
   case result of
     Right a -> pure a
-    Left e -> throw $ T.pack $ show e
+    Left e  -> throw $ T.pack $ show e
 
 readFileT :: FilePath -> Run T.Text
 readFileT = protect . T.readFile
