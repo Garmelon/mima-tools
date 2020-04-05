@@ -22,13 +22,10 @@ import           Text.Megaparsec.Char.Lexer hiding (space)
 import           Mima.Asm.Phase1.Types
 import qualified Mima.Vm.Instruction        as Vm
 
-data Span = Span SourcePos SourcePos
+data Span = Span Int Int
 
 instance Show Span where
-  show (Span start end) = "<" ++ showPos start ++ "-" ++ showPos end ++ ">"
-    where
-      showPos pos =
-        show (unPos $ sourceLine pos) ++ ":" ++ show (unPos $ sourceColumn pos)
+  show (Span start end) = "<" ++ show start ++ "-" ++ show end ++ ">"
 
 type Parser = Parsec Void T.Text
 
@@ -40,9 +37,9 @@ inlineSpace1 = void $ takeWhile1P (Just "space (no newline)") (\x -> isSpace x &
 
 withSpan :: Parser a -> Parser (Span, a)
 withSpan f = do
-  start <- getSourcePos
+  start <- getOffset
   result <- f
-  stop <- getSourcePos
+  stop <- getOffset
   pure (Span start stop, result)
 
 name :: Parser (Name Span)
@@ -104,17 +101,17 @@ instruction :: Parser (Instruction Span)
 instruction = small <|> large
   where
     small = do
-      start <- getSourcePos
+      start <- getOffset
       so <- smallOpcode
       inlineSpace1
       loc <- location
-      stop <- getSourcePos
+      stop <- getOffset
       pure $ SmallInstruction (Span start stop) so loc
     large = do
-      start <- getSourcePos
+      start <- getOffset
       lo <- largeOpcode
       sv <- optionalAwareArgument lo
-      stop <- getSourcePos
+      stop <- getOffset
       pure $ LargeInstruction (Span start stop) lo sv
     optionalAwareArgument (LargeOpcode _ code)
       | Vm.argumentIsOptional code = optional (inlineSpace1 *> smallValue <?> "argument")
