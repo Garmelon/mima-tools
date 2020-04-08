@@ -2,7 +2,6 @@
 
 module Mima.Asm.Phase2.Subphase4
   ( subphase4
-  , throughThePhases
   ) where
 
 import           Control.Monad
@@ -11,14 +10,8 @@ import           Control.Monad.Trans.Reader
 import qualified Data.Map.Strict            as Map
 import           Data.Maybe
 import qualified Data.Text                  as T
-import qualified Data.Text.IO               as T
 import           Data.Void
-import           Text.Megaparsec
 
-import           Mima.Asm.Phase1.Parse
-import           Mima.Asm.Phase2.Subphase1
-import           Mima.Asm.Phase2.Subphase2
-import           Mima.Asm.Phase2.Subphase3
 import           Mima.Asm.Phase2.Types
 import           Mima.Asm.Weed
 import qualified Mima.Vm.Instruction        as Vm
@@ -80,15 +73,3 @@ updateToken (TokenReg s addr reg)     = TokenReg s addr <$> resolveReg addr reg
 
 subphase4 :: Map.Map T.Text Vm.MimaAddress -> Phase2 'S3 s -> Weed (WeedError s) (Phase2 'S4 s)
 subphase4 labelMap phase2 = runReaderT (traverse updateToken phase2) labelMap
-
-throughThePhases :: String -> IO (Phase2 'S4 Span)
-throughThePhases name = do
-  text <- T.readFile name
-  let Right res1 = parse parsePhase1 name text
-  let Right s1 = runWeed $ subphase1 res1
-  let Right s2 = runWeed $ subphase2 s1
-  _ <- traverse print s2
-  putStrLn "HEY"
-  let Right (s3, m, _) = runWeed $ subphase3 s2
-  let Right s4 = runWeed $ subphase4 m s3
-  pure s4
