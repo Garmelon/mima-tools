@@ -114,7 +114,7 @@ instruction = small <|> large
       stop <- getOffset
       pure $ LargeInstruction (Span start stop) lo sv
     optionalAwareArgument (LargeOpcode _ code)
-      | Vm.argumentIsOptional code = optional (inlineSpace1 *> smallValue <?> "argument")
+      | Vm.argumentIsOptional code = optional $ try (inlineSpace1 *> smallValue <?> "argument")
       | otherwise                  = Just <$> (inlineSpace1 *> smallValue <?> "argument")
 
 singleDirective
