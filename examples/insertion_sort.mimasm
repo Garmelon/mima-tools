@@ -1,0 +1,73 @@
+.reg ACC 0
+.reg IAR init
+.lit 9
+.lit 8
+.lit 7
+.lit 6
+.lit 5
+.lit 4
+.lit 3
+.lit 2
+.lit 1
+
+.org 0x00040
+.lit 8
+
+.org 0x00080 ;; tempVars
+i: .lit 0
+k: .lit 0
+maxIndex: .lit 0
+max: .lit 0
+negOne: .lit -1
+one: .lit 1
+temp: .lit 0
+
+.org 0x00100 ;start
+init:
+  LDV 0x40
+  STV i
+iHead:
+  LDV i
+  JMN end
+iBody:
+  LDV i         ;
+  STV maxIndex  ; max index is current one
+  LDIV maxIndex ; A[i]
+  STV max       ; write in max
+  LDV i
+  STV k ; init k
+kHead:
+  LDV k
+  JMN afterLoop
+kBody:
+  LDV max
+  NOT        ; ones coplement
+  ADD one    ; twos complement
+  STV temp   ; -max in temp
+  LDIV k     ; A[k]
+  ADD temp   ; A[k] - max
+  JMN kAfter ; >=0 ==> A[k] > max
+  LDV k
+  STV maxIndex
+  LDIV maxIndex
+  STV max
+kAfter: ; k--
+  LDV k
+  ADD negOne
+  STV k
+  JMP kHead ; next loop
+afterLoop:
+  ; swap
+  LDIV i
+  STV temp ; A[i] -> temp
+  LDV max
+  STIV i    ; A[i] = max
+  LDV temp
+  STIV maxIndex ; A[maxIndex] = temp
+iAfter: ; i--
+  LDV i
+  ADD negOne
+  STV i
+  JMP iHead ; next loop
+end:
+  HALT
