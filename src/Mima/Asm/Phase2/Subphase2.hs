@@ -10,7 +10,6 @@ import           Control.Monad.Trans.State
 import           Data.Maybe
 
 import           Mima.Asm.Phase2.Types
-import           Mima.Asm.Phase2.Util
 import           Mima.Asm.Weed
 import qualified Mima.Vm.Word              as Vm
 
@@ -43,39 +42,6 @@ nextAddress s = do
   when (s2AddressFilled s2) $ addAddress s 1
   pure $ s2CurrentAddress s2
 
-convertLocation :: Vm.MimaAddress -> LocationX 'S1 s -> WeedS2 s (LocationX 'S2 s)
-convertLocation _ (Loc1Absolute s addr)  = pure $ Loc2Absolute s addr
-convertLocation _ (Loc1Label name)       = pure $ Loc2Label name
-convertLocation _ (Loc1LabelRel s name s' offset) =
-  pure $ Loc2LabelRel s name s' offset
-convertLocation baseAddr (Loc1Relative s delta) = do
-  let newAddr = toInteger baseAddr + delta
-  val <- lift $ intToBounded s newAddr
-  pure $ Loc2Absolute s val
-
-convertMimaWord :: Vm.MimaAddress -> MimaWord 'S1 s -> WeedS2 s (MimaWord 'S2 s)
-convertMimaWord baseAddr (WordLocation loc) =
-  WordLocation <$> convertLocation baseAddr loc
-convertMimaWord _ (WordRaw word) = pure $ WordRaw word
-
-convertInstruction :: Vm.MimaAddress -> Instruction 'S1 s -> WeedS2 s (Instruction 'S2 s)
-convertInstruction baseAddr (SmallInstruction opcode loc) =
-  SmallInstruction opcode <$> convertLocation baseAddr loc
-convertInstruction _ (LargeInstruction opcode val) =
-  pure $ LargeInstruction opcode val
-
-convertRegisterDirective :: Vm.MimaAddress -> RegisterDirective 'S1 s -> WeedS2 s (RegisterDirective 'S2 s)
-convertRegisterDirective baseAddr (RegIar s loc) =
-  RegIar s <$> convertLocation baseAddr loc
-convertRegisterDirective baseAddr (RegAcc s word) =
-  RegAcc s <$> convertMimaWord baseAddr word
-convertRegisterDirective baseAddr (RegRa s loc) =
-  RegRa s <$> convertLocation baseAddr loc
-convertRegisterDirective baseAddr (RegSp s loc) =
-  RegSp s <$> convertLocation baseAddr loc
-convertRegisterDirective baseAddr (RegFp s loc) =
-  RegFp s <$> convertLocation baseAddr loc
-
 convertP2Token :: AsmToken 'S1 s -> WeedS2 s (Maybe (AsmToken 'S2 s))
 convertP2Token (TokenOrg _ (OrgAddrAbsolute s address))
   = Nothing <$ setAddress s address
@@ -90,14 +56,13 @@ convertP2Token (TokenMeta s _ meta) = do
   pure $ Just $ TokenMeta s address meta
 convertP2Token (TokenLit s _ word) = do
   address <- nextAddress s
-  newWord <- convertMimaWord address word
-  pure $ Just $ TokenLit s address newWord
+  pure $ Just $ TokenLit s address $ idWord word
 convertP2Token (TokenInstr s _ instr) = do
   address <- nextAddress s
-  Just . TokenInstr s address <$> convertInstruction address instr
+  pure $ Just $ TokenInstr s address $ idInstruction instr
 convertP2Token (TokenReg s _ reg) = do
   address <- s2CurrentAddress <$> get
-  Just . TokenReg s address <$> convertRegisterDirective address reg
+  pure $ Just $ TokenReg s address $ idRegDir reg
 
 subphase2 :: Phase2 'S1 s -> Weed (WeedError s) (Phase2 'S2 s)
 subphase2 s1 = do

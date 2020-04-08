@@ -2,6 +2,7 @@
 
 module Mima.Asm.Phase2.Subphase3
   ( subphase3
+  , ResultS3
   ) where
 
 import           Control.Monad.Trans.Class

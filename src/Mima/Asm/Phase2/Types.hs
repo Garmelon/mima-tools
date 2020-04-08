@@ -11,8 +11,7 @@ module Mima.Asm.Phase2.Types
   , Name(..)
   , AddressX
   -- * Locations
-  , Location1(..)
-  , Location2(..)
+  , Location(..)
   , LocationX
   -- * Tokens
   , AsmToken(..)
@@ -68,36 +67,24 @@ instance Onion Name where
   peel (Name s _) = s
 
 -- | A location defined by an absolute or relative address or by a label.
-data Location1 s
-  = Loc1Absolute s Vm.MimaAddress
-  | Loc1Relative s Integer
-  | Loc1Label (Name s)
-  | Loc1LabelRel s (Name s) s Integer
+data Location s
+  = LocAbsolute s Vm.MimaAddress
+  | LocRelative s Integer
+  | LocLabel (Name s)
+  | LocLabelRel s (Name s) s Integer
   deriving (Show, Functor)
 
-instance Onion Location1 where
-  peel (Loc1Absolute s _)     = s
-  peel (Loc1Relative s _)     = s
-  peel (Loc1Label l)          = peel l
-  peel (Loc1LabelRel s _ _ _) = s
-
--- | A location defined by an absolute address or by a label.
-data Location2 s
-  = Loc2Absolute s Vm.MimaAddress
-  | Loc2Label (Name s)
-  | Loc2LabelRel s (Name s) s Integer
-  deriving (Show, Functor)
-
-instance Onion Location2 where
-  peel (Loc2Absolute s _)     = s
-  peel (Loc2Label l)          = peel l
-  peel (Loc2LabelRel s _ _ _) = s
+instance Onion Location where
+  peel (LocAbsolute s _)     = s
+  peel (LocRelative s _)     = s
+  peel (LocLabel l)          = peel l
+  peel (LocLabelRel s _ _ _) = s
 
 -- | A type family for locations in various stages of resolution.
 type family LocationX (t :: Subphase) (s :: *)
-type instance LocationX 'S1 s = Location1 s
-type instance LocationX 'S2 s = Location2 s
-type instance LocationX 'S3 s = Location2 s
+type instance LocationX 'S1 s = Location s
+type instance LocationX 'S2 s = Location s
+type instance LocationX 'S3 s = Location s
 type instance LocationX 'S4 s = Vm.MimaAddress
 type instance LocationX 'S5 s = Vm.MimaAddress
 

@@ -25,14 +25,14 @@ p1ToP2Address (P1.AddressAbsolute s addr) =
   OrgAddrAbsolute s <$> intToBounded s addr
 p1ToP2Address (P1.AddressRelative s offset) = pure $ OrgAddrRelative s offset
 
-p1ToP2Location :: P1.Location s -> WeedS1 s (Location1 s)
+p1ToP2Location :: P1.Location s -> WeedS1 s (Location s)
 p1ToP2Location (P1.LocationAddress (P1.AddressAbsolute s addr)) =
-  Loc1Absolute s <$> intToBounded s addr
+  LocAbsolute s <$> intToBounded s addr
 p1ToP2Location (P1.LocationAddress (P1.AddressRelative s offset)) =
-  pure $ Loc1Relative s offset
-p1ToP2Location (P1.LocationLabel name) = pure $ Loc1Label $ p1ToP2Name name
+  pure $ LocRelative s offset
+p1ToP2Location (P1.LocationLabel name) = pure $ LocLabel $ p1ToP2Name name
 p1ToP2Location (P1.LocationLabelRel s name s' offset) =
-  pure $ Loc1LabelRel s (p1ToP2Name name) s' offset
+  pure $ LocLabelRel s (p1ToP2Name name) s' offset
 
 p1ToP2Instruction :: P1.Instruction s -> WeedS1 s (Instruction 'S1 s)
 p1ToP2Instruction (P1.SmallInstruction _ (P1.SmallOpcode _ so) loc) =
