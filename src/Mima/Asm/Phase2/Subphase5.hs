@@ -18,7 +18,7 @@ type StateS5 = Vm.MimaState
 type WeedS5 s = StateT StateS5 (Weed (WeedError s))
 
 wordToVmWord :: MimaWord 'S4 s -> Vm.MimaWord
-wordToVmWord (WordLocation addr) = fromIntegral addr
+wordToVmWord (WordLocation addr) = Vm.largeValueToWord addr
 wordToVmWord (WordRaw word)      = word
 
 addRegister :: RegisterDirective 'S4 s -> WeedS5 s ()
